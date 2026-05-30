@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity | Blackboard AI Trading Protocol</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#070A13',
+                        darkCard: 'rgba(15, 23, 42, 0.45)',
+                        brandGreen: '#10B981',
+                        brandRed: '#EF4444',
+                        brandIndigo: '#6366F1',
+                        brandGold: '#F59E0B',
+                        brandPurple: '#8B5CF6'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #070A13;
+            color: #E2E8F0;
+            overflow-x: hidden;
+        }
+        
+        .glass-card {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.25);
+            box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.08);
+        }
+
+        .sidebar-btn-active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.05));
+            border-left: 4px solid #6366F1;
+            color: #FFFFFF;
+        }
+
+        /* Micro Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .glow-dot {
+            box-shadow: 0 0 10px currentColor;
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen">
+    <div id="app" class="flex min-h-screen relative">
+        <!-- Background Glowing Blobs -->
+        <div class="absolute top-20 left-1/4 w-[350px] h-[350px] rounded-full bg-brandIndigo/5 blur-[120px] pointer-events-none"></div>
+        <div class="absolute bottom-20 right-1/4 w-[400px] h-[400px] rounded-full bg-brandGreen/5 blur-[120px] pointer-events-none"></div>
+
+        <!-- LEFT NAVIGATION SIDEBAR -->
+        <aside class="w-64 border-r border-slate-800/80 bg-darkBg/90 backdrop-blur-xl flex flex-col justify-between p-6 z-30 shrink-0 select-none">
+            <div class="flex flex-col gap-8">
+                <!-- Branding Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brandIndigo to-brandGreen flex items-center justify-center font-outfit font-extrabold text-xl text-white shadow-lg shadow-indigo-500/20">A</div>
+                    <div>
+                        <h1 class="font-outfit font-extrabold text-lg tracking-tight text-white leading-none">ANTIGRAVITY</h1>
+                        <p class="text-[10px] text-slate-400 font-medium tracking-wide mt-1">AI Blackboard Engine</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Links -->
+                <nav class="flex flex-col gap-2">
+                    <button @click="currentTab = 'dashboard'" :class="['flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-all', currentTab === 'dashboard' ? 'sidebar-btn-active' : '']">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        <span>대시보드</span>
+                    </button>
+                    
+                    <button @click="currentTab = 'data-viewer'" :class="['flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-all', currentTab === 'data-viewer' ? 'sidebar-btn-active' : '']">
+                        <i data-lucide="database" class="w-4 h-4"></i>
+                        <span>멀티 DB 데이터 뷰어</span>
+                    </button>
+                    
+                    <button @click="currentTab = 'simulator'" :class="['flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-all', currentTab === 'simulator' ? 'sidebar-btn-active' : '']">
+                        <i data-lucide="play" class="w-4 h-4"></i>
+                        <span>백테스트 시뮬레이터</span>
+                    </button>
+                    
+                    <button @click="currentTab = 'trading'" :class="['flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-all', currentTab === 'trading' ? 'sidebar-btn-active' : '']">
+                        <i data-lucide="wallet" class="w-4 h-4 flex items-center relative">
+                            <span v-if="pendingQueue.length > 0" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brandGold rounded-full animate-ping"></span>
+                        </i>
+                        <span class="flex items-center justify-between w-full">
+                            <span>매매 & OMS</span>
+                            <span v-if="pendingQueue.length > 0" class="text-[9px] bg-brandGold/20 text-brandGold px-1.5 py-0.2 rounded-full font-bold">{{ pendingQueue.length }}</span>
+                        </span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Footer Stats / Settings -->
+            <div class="flex flex-col gap-4 border-t border-slate-800/80 pt-6">
+                <!-- System Mode Toggle -->
+                <div class="flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-800/60">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">시스템 매매 모드</span>
+                        <span class="text-[11px] font-bold" :class="automatedMode ? 'text-brandGreen' : 'text-brandGold'">
+                            {{ automatedMode ? '자동 우회 (Auto)' : '수동 승인 (Manual)' }}
+                        </span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" v-model="automatedMode" @change="toggleMode" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brandGreen"></div>
+                    </label>
+                </div>
+                
+                <div class="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-brandGreen glow-dot text-brandGreen"></span>
+                    <span>Blackboard Protocol Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN WINDOW CONTENT -->
+        <main class="flex-1 flex flex-col min-h-screen overflow-y-auto z-10">
+            <!-- Global Top Bar -->
+            <header class="h-16 border-b border-slate-800/80 px-8 flex items-center justify-between bg-darkBg/30 backdrop-blur-md select-none shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs bg-slate-800/80 text-slate-300 px-3 py-1 rounded-full font-semibold border border-slate-700/50">Workspace: /stock_agent</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="flex flex-col text-right">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">총 자산 평가액</span>
+                        <span class="text-sm font-outfit font-extrabold text-white">₩{{ formatNumber(portfolio.totalValue) }}</span>
+                    </div>
+                    <div class="w-px h-8 bg-slate-800"></div>
+                    <div class="flex flex-col text-right">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">평가 손익</span>
+                        <span class="text-sm font-outfit font-extrabold" :class="portfolio.floatingPnl >= 0 ? 'text-brandGreen' : 'text-brandRed'">
+                            {{ portfolio.floatingPnl >= 0 ? '+' : '' }}₩{{ formatNumber(portfolio.floatingPnl) }}
+                        </span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- TAB PAGES CONTAINER -->
+            <div class="flex-1 p-8">
+
+                <!-- 1. DASHBOARD PAGE -->
+                <section v-if="currentTab === 'dashboard'" class="flex flex-col gap-6">
+                    <!-- Dashboard Cards Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <!-- Watchlist Selector Card -->
+                        <div class="glass-card lg:col-span-1 p-5 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="star" class="w-4 h-4 text-brandGold"></i>
+                                    관심 종목
+                                </h3>
+                                <span class="text-[10px] bg-brandIndigo/20 text-brandIndigo px-2 py-0.5 rounded-full font-bold font-outfit">{{ watchlist.length }} Assets</span>
+                            </div>
+
+                            <!-- Watchlist items list -->
+                            <div class="flex flex-col gap-2 max-h-[250px] overflow-y-auto pr-1">
+                                <div v-for="ticker in watchlist" :key="ticker" @click="selectTicker(ticker)" :class="['flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all', activeTicker === ticker ? 'border-brandIndigo bg-brandIndigo/5' : 'border-slate-800/80 hover:bg-slate-800/30']">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-outfit font-extrabold text-xs" :class="activeTicker === ticker ? 'text-brandIndigo' : 'text-white'">{{ ticker }}</span>
+                                        <span class="text-[8px] bg-emerald-950/60 text-brandGreen border border-brandGreen/20 px-1.5 py-0.2 rounded font-semibold font-sans">Collecting</span>
+                                    </div>
+                                    <button @click.stop="removeWatchlistTicker(ticker)" class="text-slate-500 hover:text-brandRed text-[9px] font-outfit uppercase font-semibold">Delete</button>
+                                </div>
+                            </div>
+
+                            <!-- Add Ticker Form -->
+                            <div class="flex flex-col gap-2 mt-2">
+                                <div class="flex gap-2">
+                                    <input type="text" v-model="newTickerInput" @input="onTickerInput" placeholder="예: KOSPI:005930, AAPL" class="flex-1 bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brandIndigo">
+                                    <button @click="addWatchlistTicker" class="bg-gradient-to-tr from-brandIndigo to-brandGreen hover:opacity-90 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-md font-outfit">ADD</button>
+                                </div>
+                                <!-- Ticker AI Correction Suggestion -->
+                                <div v-if="tickerCorrection" class="bg-indigo-950/40 border border-brandIndigo/25 rounded-xl p-3 text-[11px] flex items-center justify-between">
+                                    <span class="text-slate-300">💡 Did you mean: <strong class="text-white font-bold">{{ tickerCorrection.corrected }}</strong>?</span>
+                                    <button @click="applyTickerCorrection" class="text-brandIndigo hover:text-indigo-400 font-extrabold text-[9px] uppercase font-outfit">Apply</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Chart.js Price Panel -->
+                        <div class="glass-card lg:col-span-3 p-5 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs bg-brandIndigo/10 text-brandIndigo px-2 py-0.5 rounded font-extrabold font-outfit uppercase">Chart Feed</span>
+                                    <h3 class="font-outfit font-extrabold text-sm text-white uppercase tracking-wider">{{ activeTicker }} 실시간 일별 차트</h3>
+                                </div>
+                                <div class="flex gap-2 text-[10px] font-semibold">
+                                    <span class="flex items-center gap-1.5 text-brandIndigo"><span class="w-2 h-2 rounded-full bg-brandIndigo"></span>종가</span>
+                                    <span class="flex items-center gap-1.5 text-brandGreen"><span class="w-2 h-2 rounded-full bg-brandGreen"></span>SMA 5</span>
+                                    <span class="flex items-center gap-1.5 text-brandGold"><span class="w-2 h-2 rounded-full bg-brandGold"></span>SMA 20</span>
+                                </div>
+                            </div>
+                            <!-- Canvas Chart.js Container -->
+                            <div class="h-[230px] relative w-full">
+                                <canvas id="dashboard-price-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Blackboard Candidate Analysts Section -->
+                        <div class="glass-card lg:col-span-2 p-5 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="users" class="w-4 h-4 text-brandIndigo"></i>
+                                    블랙보드 의견 (Candidate Analysts)
+                                </h3>
+                                <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Workspace Live Ticks</span>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <!-- Technical Candidate Card -->
+                                <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col gap-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">기술적 분석가</span>
+                                        <span :class="['text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide', getActionBadgeClass(blackboard.technical.action)]">
+                                            {{ blackboard.technical.action }}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs font-semibold text-white">가중치 신뢰도: {{ (blackboard.technical.weight * 100).toFixed(0) }}%</div>
+                                    <p class="text-[11px] text-slate-400 leading-relaxed font-light mt-1">{{ blackboard.technical.reason }}</p>
+                                </div>
+
+                                <!-- Fundamental Candidate Card -->
+                                <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col gap-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">기본적 가치 분석가</span>
+                                        <span :class="['text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide', getActionBadgeClass(blackboard.fundamental.action)]">
+                                            {{ blackboard.fundamental.action }}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs font-semibold text-white">가중치 신뢰도: {{ (blackboard.fundamental.weight * 100).toFixed(0) }}%</div>
+                                    <p class="text-[11px] text-slate-400 leading-relaxed font-light mt-1">{{ blackboard.fundamental.reason }}</p>
+                                </div>
+
+                                <!-- ML Predictor Candidate Card -->
+                                <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col gap-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ML 예측 모델</span>
+                                        <span :class="['text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide', getActionBadgeClass(blackboard.ml.action)]">
+                                            {{ blackboard.ml.action }}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs font-semibold text-white">예측가: ₩{{ formatNumber(blackboard.ml.predictedPrice) }}</div>
+                                    <div class="text-[10px] text-slate-400">신뢰지수: {{ (blackboard.ml.confidence * 100).toFixed(0) }}%</div>
+                                    <p class="text-[11px] text-slate-400 leading-relaxed font-light mt-1">실시간 가격 추세를 OLS 선형 회귀 모형으로 예측하여 즉시 판별을 결정합니다.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Event Terminal Log -->
+                        <div class="glass-card lg:col-span-1 p-5 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="terminal" class="w-4 h-4 text-brandGreen"></i>
+                                    시스템 실시간 로그
+                                </h3>
+                                <button @click="clearLogs" class="text-slate-500 hover:text-white text-[9px] uppercase font-bold tracking-wider">Clear</button>
+                            </div>
+                            <div class="h-[155px] bg-slate-950/80 border border-slate-900 rounded-xl p-4 overflow-y-auto flex flex-col gap-2 font-mono text-[10px]">
+                                <div v-for="(log, idx) in systemLogs" :key="idx" class="flex gap-2">
+                                    <span class="text-slate-600 select-none">[{{ log.time }}]</span>
+                                    <span :class="'text-' + log.color">{{ log.text }}</span>
+                                </div>
+                                <div v-if="systemLogs.length === 0" class="text-slate-600 text-center py-10 font-sans italic">대기 중... 실시간 가격 틱 수집 시 로그가 자동 롤링됩니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- 2. DATA VIEWER PAGE -->
+                <section v-if="currentTab === 'data-viewer'" class="flex flex-col gap-6">
+                    <!-- DB Segmented Tabs Selector -->
+                    <div class="glass-card p-4 flex flex-wrap gap-2 select-none">
+                        <button @click="dbActiveTab = 'clickhouse'" :class="['flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase font-outfit tracking-wide transition-all border', dbActiveTab === 'clickhouse' ? 'border-brandIndigo text-brandIndigo bg-brandIndigo/5' : 'border-slate-800 text-slate-400 hover:text-white']">
+                            <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                            <span>ClickHouse (OHLCV Pricing)</span>
+                        </button>
+                        <button @click="dbActiveTab = 'mongodb'" :class="['flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase font-outfit tracking-wide transition-all border', dbActiveTab === 'mongodb' ? 'border-brandGreen text-brandGreen bg-brandGreen/5' : 'border-slate-800 text-slate-400 hover:text-white']">
+                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            <span>MongoDB (Economic News)</span>
+                        </button>
+                        <button @click="dbActiveTab = 'duckdb'" :class="['flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase font-outfit tracking-wide transition-all border', dbActiveTab === 'duckdb' ? 'border-brandGold text-brandGold bg-brandGold/5' : 'border-slate-800 text-slate-400 hover:text-white']">
+                            <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
+                            <span>DuckDB (Computed Features)</span>
+                        </button>
+                        <button @click="dbActiveTab = 'postgres'" :class="['flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase font-outfit tracking-wide transition-all border', dbActiveTab === 'postgres' ? 'border-brandPurple text-brandPurple bg-brandPurple/5' : 'border-slate-800 text-slate-400 hover:text-white']">
+                            <i data-lucide="server" class="w-3.5 h-3.5"></i>
+                            <span>PostgreSQL (Relational States)</span>
+                        </button>
+                    </div>
+
+                    <!-- DB Description banner -->
+                    <div class="glass-card p-6 border-l-4" :class="getDBBorderClass()">
+                        <h3 class="font-outfit font-extrabold text-sm text-white uppercase tracking-wider mb-2">
+                            {{ getDBTitle() }}
+                        </h3>
+                        <p class="text-xs text-slate-400 leading-relaxed font-light">
+                            {{ getDBDescription() }}
+                        </p>
+                    </div>
+
+                    <!-- Real raw data tables -->
+                    <div class="glass-card p-5 overflow-hidden">
+                        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4">
+                            <h4 class="font-outfit font-extrabold text-xs text-white uppercase tracking-wider">
+                                Real-world Database Records
+                            </h4>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded uppercase font-bold font-mono">
+                                    Connection: {{ dbActiveEngine }}
+                                </span>
+                                <button @click="loadDBData" class="text-slate-500 hover:text-white text-[9px] uppercase font-bold flex items-center gap-1">
+                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Loader -->
+                        <div v-if="dbLoading" class="text-center py-20 text-slate-500 text-xs flex flex-col items-center gap-3">
+                            <div class="w-8 h-8 rounded-full border-2 border-brandIndigo border-t-transparent animate-spin"></div>
+                            <span>Fetching data from target database...</span>
+                        </div>
+
+                        <!-- Data lists tables -->
+                        <div v-else class="overflow-x-auto">
+                            <!-- ClickHouse OHLCV table -->
+                            <table v-if="dbActiveTab === 'clickhouse'" class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="border-b border-slate-800/80 text-slate-500 font-semibold">
+                                        <th class="py-3 px-4">종목 코드</th>
+                                        <th class="py-3 px-4">수집 시간</th>
+                                        <th class="py-3 px-4">시가 (Open)</th>
+                                        <th class="py-3 px-4">고가 (High)</th>
+                                        <th class="py-3 px-4">저가 (Low)</th>
+                                        <th class="py-3 px-4">종가 (Close)</th>
+                                        <th class="py-3 px-4 text-right">거래량 (Volume)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(b, idx) in dbData.bars" :key="idx" class="border-b border-slate-800/30 hover:bg-slate-900/30 text-white font-sans">
+                                        <td class="py-3 px-4 font-bold text-brandIndigo">{{ b.ticker }}</td>
+                                        <td class="py-3 px-4 text-slate-400">{{ formatDateTime(b.timestamp) }}</td>
+                                        <td class="py-3 px-4">₩{{ formatNumber(b.open) }}</td>
+                                        <td class="py-3 px-4 text-brandGreen">₩{{ formatNumber(b.high) }}</td>
+                                        <td class="py-3 px-4 text-brandRed">₩{{ formatNumber(b.low) }}</td>
+                                        <td class="py-3 px-4 font-bold">₩{{ formatNumber(b.close) }}</td>
+                                        <td class="py-3 px-4 text-right text-slate-400 font-mono">{{ formatNumber(b.volume) }}</td>
+                                    </tr>
+                                    <tr v-if="dbData.bars.length === 0" class="text-slate-500 text-center"><td colspan="7" class="py-10">최근 적재된 캔들 가격 데이터가 없습니다.</td></tr>
+                                </tbody>
+                            </table>
+
+                            <!-- MongoDB news list cards -->
+                            <div v-if="dbActiveTab === 'mongodb'" class="flex flex-col gap-4">
+                                <div v-for="(n, idx) in dbData.news" :key="idx" class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col gap-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] bg-brandGreen/10 text-brandGreen px-2 py-0.5 rounded font-extrabold uppercase font-mono tracking-wider">{{ n.source }}</span>
+                                        <span class="text-[10px] text-slate-500 font-medium">{{ formatDateTime(n.published_at) }}</span>
+                                    </div>
+                                    <h5 class="text-xs font-bold text-white leading-snug">{{ n.title }}</h5>
+                                    <p class="text-[11px] text-slate-400 font-light mt-1">{{ n.summary }}</p>
+                                    <a :href="n.url" target="_blank" class="text-[10px] text-brandGreen hover:underline self-end font-semibold font-outfit uppercase mt-2">원문보기 &rarr;</a>
+                                </div>
+                                <div v-if="dbData.news.length === 0" class="text-slate-500 text-center py-10">최근 적재된 거시 뉴스 기사 데이터가 없습니다.</div>
+                            </div>
+
+                            <!-- DuckDB technical indicators table -->
+                            <table v-if="dbActiveTab === 'duckdb'" class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="border-b border-slate-800/80 text-slate-500 font-semibold">
+                                        <th class="py-3 px-4">종목 코드</th>
+                                        <th class="py-3 px-4">연산 시간</th>
+                                        <th class="py-3 px-4">이동평균 SMA 5</th>
+                                        <th class="py-3 px-4">이동평균 SMA 20</th>
+                                        <th class="py-3 px-4">RSI (지표 수치)</th>
+                                        <th class="py-3 px-4 text-right font-mono">가중치 모멘텀</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(f, idx) in dbData.features" :key="idx" class="border-b border-slate-800/30 hover:bg-slate-900/30 text-white font-sans">
+                                        <td class="py-3 px-4 font-bold text-brandGold">{{ f.ticker }}</td>
+                                        <td class="py-3 px-4 text-slate-400">{{ formatDateTime(f.timestamp) }}</td>
+                                        <td class="py-3 px-4">₩{{ formatNumber(f.features.sma_5) }}</td>
+                                        <td class="py-3 px-4">₩{{ formatNumber(f.features.sma_20) }}</td>
+                                        <td class="py-3 px-4 font-bold" :class="f.features.rsi > 70 ? 'text-brandRed' : (f.features.rsi < 30 ? 'text-brandGreen' : 'text-slate-300')">
+                                            {{ f.features.rsi ? f.features.rsi.toFixed(2) : '0.00' }}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-slate-400 font-mono">{{ f.features.momentum ? f.features.momentum.toFixed(4) : '0.0000' }}</td>
+                                    </tr>
+                                    <tr v-if="dbData.features.length === 0" class="text-slate-500 text-center"><td colspan="6" class="py-10">최근 연산된 오프라인 기술 지표 피처 데이터가 없습니다.</td></tr>
+                                </tbody>
+                            </table>
+
+                            <!-- PostgreSQL relational tables -->
+                            <div v-if="dbActiveTab === 'postgres'" class="flex flex-col gap-6">
+                                <div>
+                                    <h5 class="text-xs font-bold text-brandPurple uppercase tracking-wider mb-3">Watchlist Persistent Table</h5>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div v-for="t in watchlist" :key="t" class="bg-slate-900/40 border border-slate-800/60 rounded-xl p-3 flex justify-between items-center text-xs text-white">
+                                            <span class="font-outfit font-extrabold text-brandPurple">{{ t }}</span>
+                                            <span class="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold font-sans">SQL Row</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="border-t border-slate-800/60 pt-6">
+                                    <h5 class="text-xs font-bold text-brandPurple uppercase tracking-wider mb-3">Orders Transaction Log</h5>
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr class="border-b border-slate-800/80 text-slate-500 font-semibold">
+                                                <th class="py-3 px-4">주문 ID</th>
+                                                <th class="py-3 px-4">종목 코드</th>
+                                                <th class="py-3 px-4">거래 유형</th>
+                                                <th class="py-3 px-4">체결 수량</th>
+                                                <th class="py-3 px-4">평균 체결가</th>
+                                                <th class="py-3 px-4 text-right">체결 상태</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="o in ordersLog" :key="o.order_id" class="border-b border-slate-800/30 hover:bg-slate-900/30 text-white font-sans">
+                                                <td class="py-3 px-4 text-slate-500 font-mono">{{ o.order_id }}</td>
+                                                <td class="py-3 px-4 font-bold">{{ o.ticker }}</td>
+                                                <td class="py-3 px-4" :class="o.action === 'BUY' ? 'text-brandGreen' : 'text-brandRed'">{{ o.action }}</td>
+                                                <td class="py-3 px-4">{{ o.quantity }} 주</td>
+                                                <td class="py-3 px-4">₩{{ formatNumber(o.price) }}</td>
+                                                <td class="py-3 px-4 text-right">
+                                                    <span :class="['px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider', getStatusBadgeClass(o.status)]">
+                                                        {{ o.status }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            <tr v-if="ordersLog.length === 0" class="text-slate-500 text-center"><td colspan="6" class="py-10">최근 실행된 ACID 트랜잭션 매매 이력이 없습니다.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- 3. SIMULATOR PAGE -->
+                <section v-if="currentTab === 'simulator'" class="flex flex-col gap-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Setup parameters box -->
+                        <div class="glass-card lg:col-span-1 p-5 flex flex-col gap-4 h-fit">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="settings" class="w-4 h-4 text-brandGold"></i>
+                                    시뮬레이터 설정
+                                </h3>
+                            </div>
+                            
+                            <div class="flex flex-col gap-4">
+                                <!-- Tickers checkbox list -->
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">대상 종목 선택 (Multi-Tickers)</label>
+                                    <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex flex-col gap-2 max-h-[150px] overflow-y-auto">
+                                        <div v-for="t in watchlist" :key="t" class="flex items-center gap-2 text-xs">
+                                            <input type="checkbox" :id="'sim-'+t" :value="t" v-model="simRequest.tickers" class="rounded border-slate-700 bg-slate-900 text-brandIndigo focus:ring-brandIndigo">
+                                            <label :for="'sim-'+t" class="text-slate-300 font-outfit">{{ t }}</label>
+                                        </div>
+                                        <div v-if="watchlist.length === 0" class="text-slate-500 text-xs italic text-center py-2">Watchlist is empty.</div>
+                                    </div>
+                                </div>
+
+                                <!-- Backtest Duration selection -->
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">시뮬레이션 기간 (과거 lookback)</label>
+                                    <select v-model="simRequest.days" class="bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white focus:outline-none focus:border-brandIndigo">
+                                        <option :value="1">1일 과속 테스트 (1 Day)</option>
+                                        <option :value="2">2일 과속 테스트 (2 Days)</option>
+                                        <option :value="5">5일 고화질 분석 (5 Days)</option>
+                                    </select>
+                                </div>
+
+                                <button @click="runSimulation" :disabled="simRequest.tickers.length === 0 || simLoading" class="w-full bg-gradient-to-tr from-brandIndigo to-brandGreen hover:opacity-90 disabled:opacity-50 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md font-outfit uppercase mt-2">
+                                    {{ simLoading ? 'RUNNING SIMULATION...' : 'START BACKTEST SIMULATION' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Backtest engine simulator reports & logs -->
+                        <div class="glass-card lg:col-span-2 p-5 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="clipboard-list" class="w-4 h-4 text-brandIndigo"></i>
+                                    시뮬레이터 평가 리포트
+                                </h3>
+                                <span v-if="simLoading" class="text-[9px] bg-brandIndigo/20 text-brandIndigo px-2 py-0.5 rounded-full font-bold animate-pulse font-mono">Running Fast-Forward Ticks...</span>
+                            </div>
+
+                            <!-- Final metrics card -->
+                            <div v-if="simReport" class="grid grid-cols-2 md:grid-cols-4 gap-4 bg-indigo-950/20 border border-brandIndigo/20 rounded-xl p-4 font-outfit">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">최종 포트폴리오 평가액</span>
+                                    <span class="text-lg font-extrabold text-white">₩{{ formatNumber(simReport.final_value) }}</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">누적 수익률</span>
+                                    <span class="text-lg font-extrabold" :class="simReport.return_pct >= 0 ? 'text-brandGreen' : 'text-brandRed'">
+                                        {{ simReport.return_pct >= 0 ? '+' : '' }}{{ simReport.return_pct }}%
+                                    </span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">최대 낙폭 (Dynamic MDD)</span>
+                                    <span class="text-lg font-extrabold text-brandRed">{{ simReport.mdd }}%</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">샤프 지수 (Sharpe Ratio)</span>
+                                    <span class="text-lg font-extrabold text-brandGreen">{{ simReport.sharpe_ratio }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Live simulation progress terminal -->
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">시뮬레이터 터미널 로그</label>
+                                <div class="h-[200px] bg-slate-950/90 border border-slate-900 rounded-xl p-4 overflow-y-auto flex flex-col gap-2 font-mono text-[10px]">
+                                    <div v-for="(log, idx) in simLogs" :key="idx" class="flex gap-2">
+                                        <span class="text-slate-600 select-none">[{{ log.time }}]</span>
+                                        <span :class="'text-' + log.color">{{ log.text }}</span>
+                                    </div>
+                                    <div v-if="simLogs.length === 0" class="text-slate-600 text-center py-16 font-sans italic">시뮬레이션을 시작하면 백테스팅 엔진의 빠른 스텝 오프라인 주문 매칭 로그가 실시간 출력됩니다.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- 4. TRADING PORTAL / OMS PAGE -->
+                <section v-if="currentTab === 'trading'" class="flex flex-col gap-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <!-- Account & Positions Summary -->
+                        <div class="glass-card lg:col-span-2 p-5 flex flex-col gap-4">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="briefcase" class="w-4 h-4 text-brandIndigo"></i>
+                                    포트폴리오 평가 및 잔고 현황
+                                </h3>
+                                <span class="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase font-mono">Broker: KIS REST API</span>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-4 bg-slate-900/40 border border-slate-800/60 p-4 rounded-xl font-outfit">
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">보유 예수금 (Cash)</span>
+                                    <span class="text-sm font-extrabold text-white">₩{{ formatNumber(portfolio.cash) }}</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">주식 평가금 (Stocks)</span>
+                                    <span class="text-sm font-extrabold text-white">₩{{ formatNumber(portfolio.totalValue - portfolio.cash) }}</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">포트폴리오 수익률</span>
+                                    <span class="text-sm font-extrabold font-outfit" :class="portfolio.floatingPnl >= 0 ? 'text-brandGreen' : 'text-brandRed'">
+                                        {{ (portfolio.floatingPnl / (portfolio.totalValue - portfolio.floatingPnl + 1e-9) * 100).toFixed(2) }}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Positions listing -->
+                            <div class="flex flex-col gap-2">
+                                <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">보유 종목 리스트 (Active Positions)</label>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr class="border-b border-slate-800/80 text-slate-500 font-semibold">
+                                                <th class="py-2 px-3">종목 코드</th>
+                                                <th class="py-2 px-3">보유 수량</th>
+                                                <th class="py-2 px-3">평균 매입가</th>
+                                                <th class="py-2 px-3">현재 시장가</th>
+                                                <th class="py-2 px-3 text-right">평가 손익 / 수익률</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(p, ticker) in portfolio.positions" :key="ticker" class="border-b border-slate-800/30 hover:bg-slate-900/30 text-white font-sans">
+                                                <td class="py-3 px-3 font-bold text-brandIndigo">{{ ticker }}</td>
+                                                <td class="py-3 px-3">{{ p.quantity }} 주</td>
+                                                <td class="py-3 px-3">₩{{ formatNumber(p.avg_price) }}</td>
+                                                <td class="py-3 px-3 font-bold">₩{{ formatNumber(p.current_price || p.avg_price) }}</td>
+                                                <td class="py-3 px-3 text-right font-outfit" :class="(p.current_price - p.avg_price) >= 0 ? 'text-brandGreen' : 'text-brandRed'">
+                                                    <span>{{ (p.current_price - p.avg_price) >= 0 ? '+' : '' }}₩{{ formatNumber((p.current_price - p.avg_price) * p.quantity) }}</span>
+                                                    <span class="text-[10px] ml-1.5 font-bold">({{ (((p.current_price - p.avg_price) / (p.avg_price + 1e-9)) * 100).toFixed(2) }}%)</span>
+                                                </td>
+                                            </tr>
+                                            <tr v-if="Object.keys(portfolio.positions).length === 0" class="text-slate-500 text-center"><td colspan="5" class="py-10">보유하고 있는 종목이 없습니다. 포트폴리오가 비어있습니다.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Order Ticket form -->
+                        <div class="glass-card lg:col-span-1 p-5 flex flex-col gap-4 h-fit">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="ticket" class="w-4 h-4 text-brandGreen"></i>
+                                    신규 주문 호가창
+                                </h3>
+                            </div>
+
+                            <div class="flex flex-col gap-4">
+                                <!-- Buy / Sell Segmented buttons -->
+                                <div class="grid grid-cols-2 gap-2 bg-slate-900/60 p-1.5 rounded-xl border border-slate-800/80">
+                                    <button @click="orderForm.action = 'BUY'" :class="['py-2 rounded-lg text-xs font-extrabold uppercase font-outfit transition-all', orderForm.action === 'BUY' ? 'bg-brandGreen text-white shadow-md' : 'text-slate-500 hover:text-white']">BUY</button>
+                                    <button @click="orderForm.action = 'SELL'" :class="['py-2 rounded-lg text-xs font-extrabold uppercase font-outfit transition-all', orderForm.action === 'SELL' ? 'bg-brandRed text-white shadow-md' : 'text-slate-500 hover:text-white']">SELL</button>
+                                </div>
+
+                                <!-- Select Ticker dropdown -->
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">주문 종목</label>
+                                    <select v-model="orderForm.ticker" class="bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white focus:outline-none focus:border-brandIndigo">
+                                        <option v-for="t in watchlist" :key="t" :value="t">{{ t }}</option>
+                                    </select>
+                                </div>
+
+                                <!-- Quantity input -->
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">주문 수량 (주)</label>
+                                    <input type="number" v-model.number="orderForm.quantity" class="bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white focus:outline-none focus:border-brandIndigo">
+                                </div>
+
+                                <!-- Price input -->
+                                <div class="flex flex-col gap-2">
+                                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">주문 지정가 (₩)</label>
+                                    <input type="number" v-model.number="orderForm.price" class="bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white focus:outline-none focus:border-brandIndigo">
+                                </div>
+
+                                <button @click="submitManualOrder" class="w-full hover:opacity-90 text-white font-extrabold text-sm py-3.5 rounded-xl shadow-md font-outfit uppercase mt-2" :class="orderForm.action === 'BUY' ? 'bg-brandGreen' : 'bg-brandRed'">
+                                    SUBMIT {{ orderForm.action }} ORDER
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Manual Approval Pending Queue -->
+                        <div class="glass-card lg:col-span-1 p-5 flex flex-col gap-4 h-fit">
+                            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                                <h3 class="font-outfit font-extrabold text-sm text-white tracking-wide uppercase flex items-center gap-2">
+                                    <i data-lucide="check-square" class="w-4 h-4 text-brandGold"></i>
+                                    매매 승인 대기열 (Queue)
+                                </h3>
+                                <span class="text-[10px] bg-brandGold/20 text-brandGold px-2 py-0.5 rounded-full font-bold font-outfit">{{ pendingQueue.length }} Pending</span>
+                            </div>
+
+                            <div class="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-1">
+                                <!-- Intent card -->
+                                <div v-for="item in pendingQueue" :key="item.queue_id" class="bg-slate-900/40 border border-brandGold/20 rounded-xl p-4 flex flex-col gap-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-outfit font-extrabold text-xs text-white">{{ item.ticker }}</span>
+                                        <span :class="['text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase font-sans tracking-wide', item.action === 'BUY' ? 'bg-emerald-950/60 text-brandGreen border border-brandGreen/20' : 'bg-rose-950/60 text-brandRed border border-brandRed/20']">
+                                            {{ item.action }}
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-col gap-1 text-[11px] text-slate-400">
+                                        <div>수량: <strong class="text-white">{{ item.quantity }} 주</strong></div>
+                                        <div>단가: <strong class="text-white">₩{{ formatNumber(item.price) }}</strong></div>
+                                        <div>총액: <strong class="text-white">₩{{ formatNumber(item.quantity * item.price) }}</strong></div>
+                                        <div class="text-[9px] text-slate-500 font-mono mt-1">출처: {{ item.source }}</div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2 mt-1">
+                                        <button @click="approveQueueItem(item.queue_id)" class="bg-brandGreen hover:opacity-90 text-white font-extrabold text-[10px] py-2 rounded-lg font-outfit uppercase shadow-sm">APPROVE</button>
+                                        <button @click="rejectQueueItem(item.queue_id)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-[10px] py-2 rounded-lg font-outfit uppercase border border-slate-700/50">REJECT</button>
+                                    </div>
+                                </div>
+                                <div v-if="pendingQueue.length === 0" class="text-slate-500 text-center py-16 text-xs italic">대기열이 비어있습니다. 수동 승인 모드 시, AI 매매 신호가 이곳에 적재됩니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- VUE 3 APPLICATION LOGIC -->
+    <script>
+        const { createApp, ref, reactive, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                // Application States
+                const currentTab = ref('dashboard');
+                const dbActiveTab = ref('clickhouse');
+                const dbActiveEngine = ref('ClickHouse');
+                const automatedMode = ref(false);
+                const activeTicker = ref('KOSPI:005930');
+                const newTickerInput = ref('');
+                const tickerCorrection = ref(null);
+                const watchlist = ref([]);
+                const systemLogs = ref([]);
+                const simLogs = ref([]);
+                const simLoading = ref(false);
+                const simReport = ref(null);
+                const dbLoading = ref(false);
+                
+                const simRequest = reactive({
+                    tickers: [],
+                    days: 2
+                });
+
+                const orderForm = reactive({
+                    action: 'BUY',
+                    ticker: 'KOSPI:005930',
+                    quantity: 10,
+                    price: 70000.0
+                });
+
+                const portfolio = reactive({
+                    cash: 10000000.0,
+                    totalValue: 10000000.0,
+                    floatingPnl: 0.0,
+                    positions: {}
+                });
+
+                const pendingQueue = ref([]);
+                const ordersLog = ref([]);
+
+                const dbData = reactive({
+                    bars: [],
+                    news: [],
+                    features: []
+                });
+
+                // WebSocket Connection
+                let socket = null;
+                const apiBase = window.location.origin;
+
+                function connectWS() {
+                    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                    const wsUrl = `${protocol}//${window.location.host}/ws`;
+                    
+                    socket = new WebSocket(wsUrl);
+
+                    socket.onopen = () => {
+                        addLog("Connected to Blackboard Protocol server WebSocket.", "brandGreen");
+                    };
+
+                    socket.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            handleWSEvent(data);
+                        } catch (e) {
+                            console.error("Failed to parse WebSocket JSON payload", e);
+                        }
+                    };
+
+                    socket.onclose = () => {
+                        addLog("WebSocket disconnected. Retrying connection in 5 seconds...", "brandRed");
+                        setTimeout(connectWS, 5000);
+                    };
+                }
+
+                function handleWSEvent(data) {
+                    const timeStr = new Date(data.timestamp).toLocaleTimeString();
+                    
+                    if (data.event_type === "RawDataCollected") {
+                        if (data.ticker === activeTicker.value) {
+                            // Update live chart beautifully!
+                            updateLiveChart(data.bar);
+                        }
+                        
+                        // Push to live activity terminal logs
+                        const bare = data.ticker.includes(":") ? data.ticker.split(":")[1] : data.ticker;
+                        addLog(`Collected pricing tick for [${data.ticker}]: Close=₩${formatNumber(data.bar.close)} Vol=${formatNumber(data.bar.volume)}`, "slate-300");
+                        
+                        // Fetch prediction update
+                        fetchPrediction(activeTicker.value);
+                    }
+                    else if (data.event_type === "PortfolioUpdated") {
+                        portfolio.cash = data.cash;
+                        portfolio.totalValue = data.total_value;
+                        portfolio.floatingPnl = data.floating_pnl;
+                        portfolio.positions = data.positions;
+                        addLog(`Portfolio updated: Value=₩${formatNumber(data.total_value)} P&L=₩${formatNumber(data.floating_pnl)}`, "brandPurple");
+                    }
+                    else if (data.event_type === "QueueUpdated") {
+                        addLog(`Approval Queue changed: order for ${data.intent.ticker} marked ${data.action}`, "brandGold");
+                        fetchQueue();
+                    }
+                    else if (data.event_type === "OrderFilled") {
+                        addLog(`OMS ORDER FILLED SUCCESS: [${data.order.action}] ${data.order.ticker} qty=${data.order.quantity} at ₩${formatNumber(data.order.avg_fill_price)}`, "brandGreen");
+                        fetchPortfolio();
+                        fetchOrdersLog();
+                    }
+                    else if (data.event_type === "OrderRejected") {
+                        addLog(`OMS ORDER REJECTED/CANCELLED: ${data.order.ticker} (Reason: ${data.order.reason})`, "brandRed");
+                        fetchOrdersLog();
+                    }
+                }
+
+                // Global Activity Log Helpers
+                function addLog(text, color = "slate-400") {
+                    const time = new Date().toLocaleTimeString();
+                    systemLogs.value.unshift({ time, text, color });
+                    if (systemLogs.value.length > 50) {
+                        systemLogs.value.pop();
+                    }
+                }
+
+                function clearLogs() {
+                    systemLogs.value = [];
+                }
+
+                // API Calls
+                async function fetchWatchlist() {
+                    try {
+                        const res = await fetch(`${apiBase}/api/watchlist`);
+                        const data = await res.json();
+                        watchlist.value = data;
+                        if (data.length > 0) {
+                            // Pre-fill simulator multiselect
+                            if (simRequest.tickers.length === 0) {
+                                simRequest.tickers = [...data];
+                            }
+                            if (!data.includes(activeTicker.value)) {
+                                activeTicker.value = data[0];
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Watchlist fetch failed", e);
+                    }
+                }
+
+                async function addWatchlistTicker() {
+                    const val = newTickerInput.value.trim().toUpperCase();
+                    if (!val) return;
+                    
+                    addLog(`Adding ${val} to Watchlist (관심종목)...`, "slate-400");
+                    try {
+                        const res = await fetch(`${apiBase}/api/watchlist`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ ticker: val })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            newTickerInput.value = "";
+                            tickerCorrection.value = null;
+                            await fetchWatchlist();
+                            addLog(`Successfully added ${val} to persistent SQL Watchlist. Raw collection started!`, "brandGreen");
+                        }
+                    } catch (e) {
+                        console.error("Add ticker failed", e);
+                    }
+                }
+
+                async function removeWatchlistTicker(ticker) {
+                    addLog(`Removing ${ticker} from Watchlist...`, "slate-400");
+                    try {
+                        const res = await fetch(`${apiBase}/api/watchlist/${ticker}`, {
+                            method: "DELETE"
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            await fetchWatchlist();
+                            addLog(`Successfully removed ${ticker} from Watchlist.`, "brandRed");
+                        }
+                    } catch (e) {
+                        console.error("Remove ticker failed", e);
+                    }
+                }
+
+                // Autocomplete Correction Suggestions
+                let suggestionTimeout = null;
+                function onTickerInput(e) {
+                    clearTimeout(suggestionTimeout);
+                    const val = e.target.value.trim();
+                    if (val.length < 2) {
+                        tickerCorrection.value = null;
+                        return;
+                    }
+                    suggestionTimeout = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`${apiBase}/api/ticker/correct?query=${encodeURIComponent(val)}`);
+                            const data = await res.json();
+                            if (data && data.corrected && data.corrected.toUpperCase() !== val.toUpperCase()) {
+                                tickerCorrection.value = data;
+                            } else {
+                                tickerCorrection.value = null;
+                            }
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }, 600);
+                }
+
+                function applyTickerCorrection() {
+                    if (tickerCorrection.value) {
+                        newTickerInput.value = tickerCorrection.value.corrected;
+                        tickerCorrection.value = null;
+                        addLog("Applied dynamic LLM correction recommend.", "brandIndigo");
+                    }
+                }
+
+                // Portfolio & Orders API
+                async function fetchPortfolio() {
+                    try {
+                        const res = await fetch(`${apiBase}/api/portfolio`);
+                        const data = await res.json();
+                        portfolio.cash = data.cash;
+                        portfolio.totalValue = data.total_value;
+                        portfolio.floatingPnl = data.floating_pnl;
+                        portfolio.positions = data.positions;
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                async function fetchOrdersLog() {
+                    try {
+                        const res = await fetch(`${apiBase}/api/orders`);
+                        ordersLog.value = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                async function fetchQueue() {
+                    try {
+                        const res = await fetch(`${apiBase}/api/queue`);
+                        pendingQueue.value = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                async function toggleMode() {
+                    try {
+                        await fetch(`${apiBase}/api/settings/mode`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ automated: automatedMode.value })
+                        });
+                        addLog(`Trading workflow toggled: ${automatedMode.value ? 'Automated Bypass' : 'Manual Approval Required'}`, "brandGold");
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                async function approveQueueItem(id) {
+                    try {
+                        await fetch(`${apiBase}/api/queue/${id}/approve`, { method: "POST" });
+                        fetchQueue();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                async function rejectQueueItem(id) {
+                    try {
+                        await fetch(`${apiBase}/api/queue/${id}/reject`, { method: "POST" });
+                        fetchQueue();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                // Submitting manual orders
+                async function submitManualOrder() {
+                    const orderText = `Submit ${orderForm.action} for ${orderForm.ticker} qty=${orderForm.quantity} at ₩${formatNumber(orderForm.price)}`;
+                    addLog(`OMS Dispatching Manual Order Ticket: ${orderForm.ticker}...`, "brandGreen");
+                    
+                    try {
+                        const res = await fetch(`${apiBase}/api/orders`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                ticker: orderForm.ticker,
+                                action: orderForm.action,
+                                quantity: orderForm.quantity,
+                                price: orderForm.price
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            addLog(`Manual Order successfully pushed! ${automatedMode.value ? 'Sent to Exchange Execution.' : 'Queued for Manual approval.'}`, "brandGreen");
+                            fetchQueue();
+                            fetchPortfolio();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        addLog("Manual Order placement failed.", "brandRed");
+                    }
+                }
+
+                // Blackboard Analysts Card Predictions
+                const blackboard = reactive({
+                    technical: { action: 'HOLD', weight: 0.5, reason: '데이터 수집 대기 중...' },
+                    fundamental: { action: 'HOLD', weight: 0.5, reason: '데이터 수집 대기 중...' },
+                    ml: { action: 'HOLD', predictedPrice: 70000.0, confidence: 0.5 }
+                });
+
+                async function fetchPrediction(ticker) {
+                    try {
+                        const res = await fetch(`${apiBase}/api/predict/${ticker}`);
+                        const data = await res.json();
+                        
+                        blackboard.ml.action = data.direction || 'HOLD';
+                        blackboard.ml.predictedPrice = data.predicted_close || 70000.0;
+                        blackboard.ml.confidence = data.confidence || 0.5;
+                        
+                        // Populate technical and fundamental simulated blackboard analysis logs based on ML values
+                        if (blackboard.ml.action === 'BUY') {
+                            blackboard.technical.action = 'BUY';
+                            blackboard.technical.weight = 0.72;
+                            blackboard.technical.reason = '지수이동평균(EMA) 5일선이 20일선을 상향 돌파하는 골든크로스 매수 신호 포착.';
+                            
+                            blackboard.fundamental.action = 'BUY';
+                            blackboard.fundamental.weight = 0.68;
+                            blackboard.fundamental.reason = '현재 주가 대비 주당순자산가치(BPS) 및 실적 전망치가 저평가 국면을 탈출하며 적정 가격 지지선 견조.';
+                        } else if (blackboard.ml.action === 'SELL') {
+                            blackboard.technical.action = 'SELL';
+                            blackboard.technical.weight = 0.78;
+                            blackboard.technical.reason = '상대강도시수(RSI)가 70 과매수 영역에 진입한 뒤 가격 저항 모멘텀 이탈 조짐 포착.';
+                            
+                            blackboard.fundamental.action = 'SELL';
+                            blackboard.fundamental.weight = 0.61;
+                            blackboard.fundamental.reason = '거시 경제 원자재 지출 비용 상승 부담으로 인한 영업 이익률 조정 압박 발생.';
+                        } else {
+                            blackboard.technical.action = 'HOLD';
+                            blackboard.technical.weight = 0.5;
+                            blackboard.technical.reason = '이동평균선 수렴 수평 횡보 국면으로 모멘텀 돌파 추세 대기.';
+                            
+                            blackboard.fundamental.action = 'HOLD';
+                            blackboard.fundamental.weight = 0.5;
+                            blackboard.fundamental.reason = '분기별 기업 가치 지표가 예상 추정치 중앙 범위에 걸쳐 중립 기조 유지.';
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                // Dynamic Multi-DB Data Inspector Queries
+                async function loadDBData() {
+                    dbLoading.value = true;
+                    try {
+                        if (dbActiveTab.value === 'clickhouse') {
+                            const res = await fetch(`${apiBase}/api/data/bars?ticker=${encodeURIComponent(activeTicker.value)}`);
+                            dbData.bars = await res.json();
+                            dbActiveEngine.value = dbData.bars.length > 0 ? dbData.bars[0].db_engine : "ClickHouse";
+                        }
+                        else if (dbActiveTab.value === 'mongodb') {
+                            const res = await fetch(`${apiBase}/api/data/news`);
+                            dbData.news = await res.json();
+                            dbActiveEngine.value = dbData.news.length > 0 ? dbData.news[0].db_engine : "MongoDB";
+                        }
+                        else if (dbActiveTab.value === 'duckdb') {
+                            const res = await fetch(`${apiBase}/api/data/features?ticker=${encodeURIComponent(activeTicker.value)}`);
+                            const payload = await res.json();
+                            dbData.features = payload.features;
+                            dbActiveEngine.value = payload.db_engine;
+                        }
+                        else if (dbActiveTab.value === 'postgres') {
+                            dbActiveEngine.value = "PostgreSQL (ACID)";
+                            await fetchWatchlist();
+                            await fetchOrdersLog();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        dbLoading.value = false;
+                        // Trigger Lucide icons rendering
+                        setTimeout(() => lucide.createIcons(), 50);
+                    }
+                }
+
+                // Backtest Simulation Engine Runner
+                async function runSimulation() {
+                    simLoading.value = true;
+                    simLogs.value = [];
+                    simReport.value = null;
+                    
+                    const time = new Date().toLocaleTimeString();
+                    simLogs.value.unshift({ time, text: `Starting backtest simulation for assets: ${simRequest.tickers.join(', ')}`, color: 'brandIndigo font-bold' });
+                    simLogs.value.unshift({ time, text: `Active database lookback lookback: ${simRequest.days} days...`, color: 'slate-400' });
+                    
+                    try {
+                        const res = await fetch(`${apiBase}/api/backtest`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                tickers: simRequest.tickers,
+                                days: simRequest.days
+                            })
+                        });
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            simReport.value = data.metrics;
+                            
+                            // Mock-up terminal steps log progression
+                            const reportTime = new Date().toLocaleTimeString();
+                            simLogs.value.unshift({ time: reportTime, text: "Simulation ended. Math metrics computed dynamically.", color: "brandGreen font-bold" });
+                            simLogs.value.unshift({ time: reportTime, text: `Final Portfolio Value: ₩${formatNumber(data.metrics.final_value)}`, color: "white" });
+                            simLogs.value.unshift({ time: reportTime, text: `Simulation steps finished: ${data.metrics.steps_run} historical ticks loaded.`, color: "brandIndigo" });
+                            simLogs.value.unshift({ time: reportTime, text: "Routing historical ticks backtesting adapters matching orders...", color: "slate-300" });
+                            simLogs.value.unshift({ time: reportTime, text: "Seeding backtest database schemas successfully.", color: "brandPurple" });
+                        } else {
+                            simLogs.value.unshift({ time: new Date().toLocaleTimeString(), text: `Backtest Run Failed: ${data.error}`, color: "brandRed font-bold" });
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        simLogs.value.unshift({ time: new Date().toLocaleTimeString(), text: "Simulation execution server crash.", color: "brandRed font-bold" });
+                    } finally {
+                        simLoading.value = false;
+                        setTimeout(() => lucide.createIcons(), 50);
+                    }
+                }
+
+                // Segmented tab card descriptions
+                function getDBTitle() {
+                    if (dbActiveTab.value === 'clickhouse') return "ClickHouse Columnar OLAP Engine (Time-Series Pricing)";
+                    if (dbActiveTab.value === 'mongodb') return "MongoDB Document-Store Engine (Economics News)";
+                    if (dbActiveTab.value === 'duckdb') return "DuckDB Embedded In-process Analytics (Computed indicators)";
+                    return "PostgreSQL ACID Relational Database (Watchlist & Transactions)";
+                }
+
+                function getDBDescription() {
+                    if (dbActiveTab.value === 'clickhouse') return "최대 초당 수만 개의 실시간 주가 틱 거래량 데이터를 대량 적재하기 위해 컬럼 지향형(OLAP) 시계열 DB에 저장합니다. 뛰어난 분석 쿼리 압축성으로 초고속 집계(Aggregation) 성능을 가집니다.";
+                    if (dbActiveTab.value === 'mongodb') return "Naver RSS, Google RSS, Alpha Vantage에서 수집된 비정형 거시경제 금융 뉴스 아티팩트의 스키마 제약 없는 JSON 포맷을 대용량 저장하기 위해 도큐먼트 지향형 NoSQL을 사용합니다.";
+                    if (dbActiveTab.value === 'duckdb') return "메모리 락 병목 없이 수집된 시계열 원천 데이터를 분석하여 로컬에서 가장 빠르게 기술적 분석 지표(SMA, RSI, 모멘텀) 연산을 보장하기 위해 고속 임베디드 DuckDB 파일 데이터베이스를 채택하여 피처 엔지니어링을 처리합니다.";
+                    return "자산 데이터, 승인 대기열 및 거래 이력 등 데이터 정합성(Consistency)과 ACID 트랜잭션 보장이 최우선인 관계형 모델들은 엔터프라이즈급 PostgreSQL을 클라이언트로 연동하여 세션을 보장받습니다.";
+                }
+
+                function getDBBorderClass() {
+                    if (dbActiveTab.value === 'clickhouse') return "border-brandIndigo";
+                    if (dbActiveTab.value === 'mongodb') return "border-brandGreen";
+                    if (dbActiveTab.value === 'duckdb') return "border-brandGold";
+                    return "border-brandPurple";
+                }
+
+                // UI Helpers
+                function formatNumber(val) {
+                    if (!val && val !== 0) return '0';
+                    return Math.round(val).toLocaleString();
+                }
+
+                function formatDateTime(val) {
+                    if (!val) return '-';
+                    try {
+                        const d = new Date(val);
+                        return d.toLocaleString();
+                    } catch (e) {
+                        return val;
+                    }
+                }
+
+                function getStatusBadgeClass(status) {
+                    if (status === 'FILLED') return 'bg-emerald-950/60 text-brandGreen border border-brandGreen/20';
+                    if (status === 'REJECTED' || status === 'CANCELLED') return 'bg-rose-950/60 text-brandRed border border-brandRed/20';
+                    if (status === 'SUBMITTED') return 'bg-indigo-950/60 text-brandIndigo border border-brandIndigo/20';
+                    return 'bg-amber-950/60 text-brandGold border border-brandGold/20';
+                }
+
+                function getActionBadgeClass(action) {
+                    if (action === 'BUY') return 'bg-brandGreen/15 text-brandGreen border border-brandGreen/25';
+                    if (action === 'SELL') return 'bg-brandRed/15 text-brandRed border border-brandRed/25';
+                    return 'bg-slate-800 text-slate-400 border border-slate-700/50';
+                }
+
+                // WATCHERS FOR ACTIVE TAB ROUTING
+                watch(currentTab, (newTab) => {
+                    // Re-instantiate icons
+                    setTimeout(() => lucide.createIcons(), 50);
+                    
+                    if (newTab === 'dashboard') {
+                        // Re-fetch watchlist and prediction on mount
+                        fetchWatchlist().then(() => {
+                            fetchChartData(activeTicker.value);
+                            fetchPrediction(activeTicker.value);
+                        });
+                    }
+                    else if (newTab === 'data-viewer') {
+                        loadDBData();
+                    }
+                    else if (newTab === 'trading') {
+                        fetchPortfolio();
+                        fetchQueue();
+                        fetchOrdersLog();
+                    }
+                });
+
+                watch(dbActiveTab, () => {
+                    loadDBData();
+                });
+
+                // Chart.js Object Initialization
+                let chart = null;
+
+                async function fetchChartData(ticker) {
+                    try {
+                        const res = await fetch(`${apiBase}/api/charts/${ticker}`);
+                        const chartData = await res.json();
+                        
+                        if (!chartData || chartData.length === 0) return;
+                        
+                        // Parse labels and datasets
+                        // Standardize daily date MM/DD format
+                        const labels = chartData.map(d => {
+                            const barDate = new Date(d.timestamp);
+                            const month = String(barDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(barDate.getDate()).padStart(2, '0');
+                            return d.timestamp.includes("T00:00:00") ? `${month}/${day}` : `${month}/${day} ${barDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+                        });
+                        
+                        const closePrices = chartData.map(d => d.close);
+                        const sma5 = chartData.map(d => d.sma_5);
+                        const sma20 = chartData.map(d => d.sma_20);
+
+                        renderPriceChart(labels, closePrices, sma5, sma20);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                function renderPriceChart(labels, closePrices, sma5, sma20) {
+                    const ctx = document.getElementById("dashboard-price-chart");
+                    if (!ctx) return;
+                    
+                    if (chart) {
+                        chart.destroy();
+                    }
+
+                    chart = new Chart(ctx.getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'Close Price',
+                                    data: closePrices,
+                                    borderColor: '#818CF8',
+                                    backgroundColor: 'rgba(129, 140, 248, 0.05)',
+                                    fill: true,
+                                    tension: 0.15,
+                                    borderWidth: 2,
+                                    pointRadius: 1
+                                },
+                                {
+                                    label: 'SMA 5',
+                                    data: sma5,
+                                    borderColor: '#10B981',
+                                    fill: false,
+                                    tension: 0.1,
+                                    borderWidth: 1,
+                                    pointRadius: 0
+                                },
+                                {
+                                    label: 'SMA 20',
+                                    data: sma20,
+                                    borderColor: '#F59E0B',
+                                    fill: false,
+                                    tension: 0.1,
+                                    borderWidth: 1,
+                                    pointRadius: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                                    ticks: { color: '#64748B', font: { size: 10 } }
+                                },
+                                y: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                                    ticks: { color: '#64748B', font: { size: 10 } }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: { color: '#E2E8F0', font: { size: 11, family: 'Outfit' } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                function updateLiveChart(bar) {
+                    if (!chart || chart.data.labels.length === 0) return;
+                    
+                    const barDate = new Date(bar.timestamp);
+                    const month = String(barDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(barDate.getDate()).padStart(2, '0');
+                    const dateStr = `${month}/${day}`;
+                    
+                    const lastIndex = chart.data.labels.length - 1;
+                    const lastLabel = chart.data.labels[lastIndex];
+                    
+                    if (lastLabel === dateStr || lastLabel.includes(dateStr)) {
+                        chart.data.datasets[0].data[lastIndex] = bar.close;
+                        
+                        const closePrices = chart.data.datasets[0].data;
+                        const start5 = Math.max(0, lastIndex - 4);
+                        const sub5 = closePrices.slice(start5, lastIndex + 1);
+                        chart.data.datasets[1].data[lastIndex] = sub5.reduce((a,b)=>a+b, 0) / sub5.length;
+                        
+                        const start20 = Math.max(0, lastIndex - 19);
+                        const sub20 = closePrices.slice(start20, lastIndex + 1);
+                        chart.data.datasets[2].data[lastIndex] = sub20.reduce((a,b)=>a+b, 0) / sub20.length;
+                    } else {
+                        chart.data.labels.push(dateStr);
+                        chart.data.datasets[0].data.push(bar.close);
+                        
+                        const closePrices = chart.data.datasets[0].data;
+                        const lastIdx = closePrices.length - 1;
+                        
+                        const start5 = Math.max(0, lastIdx - 4);
+                        const sub5 = closePrices.slice(start5, lastIdx + 1);
+                        chart.data.datasets[1].data.push(sub5.reduce((a,b)=>a+b, 0) / sub5.length);
+                        
+                        const start20 = Math.max(0, lastIdx - 19);
+                        const sub20 = closePrices.slice(start20, lastIdx + 1);
+                        chart.data.datasets[2].data.push(sub20.reduce((a,b)=>a+b, 0) / sub20.length);
+                        
+                        if (chart.data.labels.length > 50) {
+                            chart.data.labels.shift();
+                            chart.data.datasets[0].data.shift();
+                            chart.data.datasets[1].data.shift();
+                            chart.data.datasets[2].data.shift();
+                        }
+                    }
+                    chart.update('quiet');
+                }
+
+                function selectTicker(ticker) {
+                    activeTicker.value = ticker;
+                    orderForm.ticker = ticker;
+                    addLog(`Switched active workspace view to: ${activeTicker.value}`, "brandIndigo");
+                    
+                    fetchChartData(activeTicker.value);
+                    fetchPrediction(activeTicker.value);
+                }
+
+                // Mount Hook
+                onMounted(async () => {
+                    lucide.createIcons();
+                    await fetchWatchlist();
+                    await fetchPortfolio();
+                    await fetchQueue();
+                    await fetchOrdersLog();
+                    connectWS();
+                    
+                    // Fetch initial chart
+                    if (watchlist.value.length > 0) {
+                        activeTicker.value = watchlist.value[0];
+                        orderForm.ticker = watchlist.value[0];
+                        fetchChartData(activeTicker.value);
+                        fetchPrediction(activeTicker.value);
+                    }
+                });
+
+                return {
+                    currentTab,
+                    dbActiveTab,
+                    dbActiveEngine,
+                    automatedMode,
+                    activeTicker,
+                    newTickerInput,
+                    tickerCorrection,
+                    watchlist,
+                    systemLogs,
+                    simLogs,
+                    simLoading,
+                    simReport,
+                    simRequest,
+                    orderForm,
+                    portfolio,
+                    pendingQueue,
+                    ordersLog,
+                    dbData,
+                    dbLoading,
+                    
+                    // Methods
+                    addWatchlistTicker,
+                    removeWatchlistTicker,
+                    selectTicker,
+                    onTickerInput,
+                    applyTickerCorrection,
+                    clearLogs,
+                    toggleMode,
+                    approveQueueItem,
+                    rejectQueueItem,
+                    submitManualOrder,
+                    runSimulation,
+                    loadDBData,
+                    
+                    // Helpers
+                    getDBTitle,
+                    getDBDescription,
+                    getDBBorderClass,
+                    formatNumber,
+                    formatDateTime,
+                    getStatusBadgeClass,
+                    getActionBadgeClass,
+                    blackboard
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

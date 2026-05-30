@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --color-darkBg: #070A13;
+  --color-darkCard: rgba(15, 23, 42, 0.45);
+  --color-brandGreen: #10B981;
+  --color-brandRed: #EF4444;
+  --color-brandIndigo: #6366F1;
+  --color-brandGold: #F59E0B;
+  --color-brandPurple: #8B5CF6;
+
+  --font-outfit: "Outfit", sans-serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+}
+
+body {
+  background-color: #070A13;
+  color: #E2E8F0;
+  overflow-x: hidden;
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+/* Premium Glassmorphic Cards */
+.glass-card {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.08);
+}
+
+/* Sidebar Active Button Status */
+.sidebar-btn-active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.05));
+  border-left: 4px solid #6366F1;
+  color: #FFFFFF !important;
+}
+
+/* Micro Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glowing Dynamic Dots */
+.glow-dot {
+  box-shadow: 0 0 10px currentColor;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+/* Custom log entries colors */
+.text-brandGreen {
+  color: #10B981;
+}
+.text-brandRed {
+  color: #EF4444;
+}
+.text-brandIndigo {
+  color: #6366F1;
+}
+.text-brandGold {
+  color: #F59E0B;
+}
+.text-brandPurple {
+  color: #8B5CF6;
+}
+.text-slate-300 {
+  color: #CBD5E1;
+}
+.text-slate-400 {
+  color: #94A3B8;
+}
+.text-white {
+  color: #FFFFFF;
+}

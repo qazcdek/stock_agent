@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+
+    container_name: stock_agent_postgres
+
+    restart: always
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stock_agent
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: stock_agent_pgadmin
+
+    restart: always
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@stockagent.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+
+    ports:
+      - "8080:80"
+
+    depends_on:
+      - postgres
+
+  mongodb:
+    image: mongo:latest
+    container_name: stock_agent_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: stock_agent_clickhouse
+    restart: always
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  vllm:
+    image: vllm/vllm-openai:v0.21.0
+
+    container_name: stock_agent_vllm
+
+    restart: unless-stopped
+
+    runtime: nvidia
+
+    environment:
+      HF_TOKEN: $HF_TOKEN
+
+    ports:
+      - "18000:8000"
+
+    ipc: host
+
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+
+    command: >
+      --model google/gemma-4-E2B-it  --dtype bfloat16  --quantization bitsandbytes  --load-format bitsandbytes  --kv-cache-dtype fp8  --max-model-len 2048  --gpu-memory-utilization 0.90
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  clickhouse_data:
