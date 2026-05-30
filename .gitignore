@@ -5,6 +5,7 @@
 ### DB data / docker compose ###
 *.db
 docker-compose.yml
+*.wal
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
