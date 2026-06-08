@@ -13,9 +13,86 @@ class PortfolioManager:
     def __init__(self, initial_cash: float = 500000000.0):
         self.cash = initial_cash
         self.initial_cash = initial_cash
+        self._kis_broker = None
         
         event_bus.subscribe("OrderFilled", self.on_order_filled)
         logger.info("PortfolioManager initialized and subscribed to OrderFilledEvent", initial_cash=self.cash)
+
+        # Start background KIS sync loop if loop is running
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                loop.create_task(self._kis_sync_loop())
+        except RuntimeError:
+            pass
+
+    async def _kis_sync_loop(self):
+        """Loop to periodically pull actual balance and position metrics from KIS."""
+        import asyncio
+        logger.info("Starting background KIS portfolio sync loop...")
+        # Brief delay on startup
+        await asyncio.sleep(5)
+        while True:
+            try:
+                await self.sync_with_kis()
+            except Exception as e:
+                logger.error("Error in background KIS sync loop step", error=str(e))
+            await asyncio.sleep(20) # pull every 20 seconds
+
+    async def sync_with_kis(self):
+        """Syncs the in-memory cash and database positions with real KIS broker values."""
+        if self._kis_broker is None:
+            try:
+                from stock_agent.infra.brokers.kis_broker import KISBroker
+                self._kis_broker = KISBroker()
+            except Exception as e:
+                logger.error("Failed to import/instantiate KISBroker", error=str(e))
+                return
+
+        if self._kis_broker.is_mock_mode:
+            return
+
+        # 1. Fetch balance from KIS
+        try:
+            balance = await self._kis_broker.get_balance()
+            if balance and "cash" in balance:
+                self.cash = balance["cash"]
+                # Adjust initial_cash to prevent unrealistic return rates on UI
+                if self.initial_cash == 500000000.0:
+                    self.initial_cash = self.cash
+                logger.info("Synced PortfolioManager cash with KIS", cash=self.cash)
+        except Exception as e:
+            logger.error("Error retrieving balance from KISBroker", error=str(e))
+
+        # 2. Fetch positions from KIS
+        try:
+            kis_positions = await self._kis_broker.get_positions()
+            if kis_positions is not None:
+                from stock_agent.common.dto import Position as DtoPosition
+                
+                db_positions = storage_layer.get_positions()
+                db_tickers = {p.ticker for p in db_positions}
+                kis_tickers = set(kis_positions.keys())
+
+                # Save or update KIS positions to DB
+                for ticker, pos in kis_positions.items():
+                    dto_pos = DtoPosition(
+                        ticker=ticker,
+                        quantity=pos.quantity,
+                        avg_price=pos.avg_price,
+                        current_price=pos.current_price,
+                        floating_pnl=pos.pnl
+                    )
+                    storage_layer.save_position(dto_pos)
+
+                # Delete any positions that are no longer in KIS
+                for ticker in db_tickers - kis_tickers:
+                    storage_layer.delete_position(ticker)
+                    
+                logger.info("Synced PortfolioManager positions with KIS", count=len(kis_positions))
+        except Exception as e:
+            logger.error("Error retrieving positions from KISBroker", error=str(e))
 
     def get_portfolio_summary(self) -> dict:
         positions = storage_layer.get_positions()

@@ -54,17 +54,17 @@ class NewsCollector:
             logger.warning("Failed to fetch Google News Crypto RSS, using offline mock fallback", error=str(e))
             articles.extend(self._get_google_crypto_mock_news())
 
-        # 3. Fetch Alpha Vantage NEWS_SENTIMENT API
-        if settings.ALPHA_VANTAGE_API_KEY:
+        # 3. Fetch FMP Stock News API
+        if settings.FMP_API_KEY:
             try:
-                av_articles = await self._fetch_alpha_vantage_news()
-                articles.extend(av_articles)
+                fmp_articles = await self._fetch_fmp_news()
+                articles.extend(fmp_articles)
             except Exception as e:
-                logger.warning("Failed to fetch Alpha Vantage news, using offline mock fallback", error=str(e))
-                articles.extend(self._get_alpha_vantage_mock_news())
+                logger.warning("Failed to fetch FMP news, using offline mock fallback", error=str(e))
+                articles.extend(self._get_fmp_mock_news())
         else:
-            logger.info("Alpha Vantage API key not set, using default offline mock news")
-            articles.extend(self._get_alpha_vantage_mock_news())
+            logger.info("FMP API key not set, using default offline mock news")
+            articles.extend(self._get_fmp_mock_news())
 
         # Standardize and save to database
         saved_count = 0
@@ -198,37 +198,53 @@ class NewsCollector:
             )
         ]
 
-    async def _fetch_alpha_vantage_news(self) -> List[NewsArticle]:
-        api_key = settings.ALPHA_VANTAGE_API_KEY
-        url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey={api_key}"
+    async def _fetch_fmp_news(self) -> List[NewsArticle]:
+        api_key = settings.FMP_API_KEY
+        url = f"https://financialmodelingprep.com/api/v3/stock_news?limit=50&apikey={api_key}"
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.json()
             
-            feed = data.get("feed", [])
             articles = []
-            for item in feed:
-                title = item.get("title", "")
-                url_link = item.get("url", "")
-                summary = item.get("summary", "")
-                source = item.get("source", "Alpha Vantage")
-                
-                time_published = item.get("time_published", "")
-                try:
-                    published_at = datetime.strptime(time_published, "%Y%m%dT%H%M%S")
-                    published_at = published_at.replace(tzinfo=timezone.utc)
-                except Exception:
-                    published_at = datetime.now(timezone.utc)
-                
-                articles.append(NewsArticle(
-                    url=url_link,
-                    title=title,
-                    summary=summary,
-                    source=f"Alpha Vantage ({source})",
-                    published_at=published_at,
-                    category="finance_economics"
-                ))
+            if isinstance(data, list):
+                for item in data:
+                    title = item.get("title", "")
+                    url_link = item.get("url", "")
+                    summary = item.get("text", "")
+                    source = item.get("site", "FMP")
+                    ticker = item.get("symbol", "")
+                    
+                    published_date = item.get("publishedDate", "")
+                    try:
+                        # Format is "YYYY-MM-DD HH:MM:SS"
+                        published_at = datetime.strptime(published_date, "%Y-%m-%d %H:%M:%S")
+                        published_at = published_at.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        published_at = datetime.now(timezone.utc)
+                    
+                    # Normalize ticker locally to avoid circular dependencies
+                    normalized_ticker = None
+                    if ticker:
+                        ticker_clean = ticker.strip().upper()
+                        if ":" in ticker_clean:
+                            normalized_ticker = ticker_clean
+                        elif ticker_clean.isdigit():
+                            normalized_ticker = f"KOSPI:{ticker_clean}"
+                        elif ticker_clean in ("BTC", "ETH", "SOL", "XRP"):
+                            normalized_ticker = f"UPBIT:{ticker_clean}"
+                        else:
+                            normalized_ticker = f"NASDAQ:{ticker_clean}"
+                    
+                    articles.append(NewsArticle(
+                        url=url_link,
+                        title=title,
+                        summary=summary,
+                        source=f"FMP ({source})",
+                        published_at=published_at,
+                        category="finance_economics",
+                        ticker=normalized_ticker
+                    ))
             return articles
 
     def _get_naver_mock_news(self) -> List[NewsArticle]:
@@ -271,13 +287,13 @@ class NewsCollector:
             )
         ]
 
-    def _get_alpha_vantage_mock_news(self) -> List[NewsArticle]:
+    def _get_fmp_mock_news(self) -> List[NewsArticle]:
         return [
             NewsArticle(
-                url="https://www.alphavantage.co/mock_av_1",
+                url="https://financialmodelingprep.com/mock_fmp_1",
                 title="Federal Reserve Open Market Committee Minutes Reveal Concerns Over Long-Term Productivity Rates",
                 summary="The central bank officials noted that structural labor constraints and energy cost dynamics might keep medium-term rates slightly elevated.",
-                source="Alpha Vantage (Mock)",
+                source="FMP (Mock)",
                 published_at=datetime.now(timezone.utc),
                 category="finance_economics"
             )

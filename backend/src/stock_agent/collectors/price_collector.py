@@ -13,7 +13,7 @@ from stock_agent.storage.universe_manager import CRYPTO_30
 class PriceCollector:
     def __init__(self, repository: DataRepository):
         self.repository = repository
-        self.alpha_vantage_key = settings.ALPHA_VANTAGE_API_KEY
+        self.fmp_key = settings.FMP_API_KEY
 
     async def collect_historical_bars(self, ticker: str, start_date: date, end_date: date) -> List[Bar]:
         """Fetches daily stock bars using the multi-tier data pipeline and persists to storage."""
@@ -45,20 +45,20 @@ class PriceCollector:
                     logger.info("Successfully fetched bars from FinanceDataReader (Tier 1)", ticker=ticker, count=len(bars))
                     return bars
             except Exception as e:
-                logger.warning("FinanceDataReader collection failed, falling back to Alpha Vantage", ticker=ticker, error=str(e))
+                logger.warning("FinanceDataReader collection failed, falling back to FMP", ticker=ticker, error=str(e))
 
             # ==========================================================
-            # TIER 2: Alpha Vantage API
+            # TIER 2: FMP API
             # ==========================================================
-            if self.alpha_vantage_key and self.alpha_vantage_key != "your_alpha_vantage_api_key_here":
+            if self.fmp_key and self.fmp_key != "your_fmp_api_key_here":
                 try:
-                    bars = await self._fetch_from_alpha_vantage(ticker, start_date, end_date)
+                    bars = await self._fetch_from_fmp(ticker, start_date, end_date)
                     if bars:
                         await self.repository.save_bars(bars)
-                        logger.info("Successfully fetched bars from Alpha Vantage (Tier 2)", ticker=ticker, count=len(bars))
+                        logger.info("Successfully fetched bars from FMP (Tier 2)", ticker=ticker, count=len(bars))
                         return bars
                 except Exception as e:
-                    logger.warning("Alpha Vantage API collection failed, falling back to simulated generator", ticker=ticker, error=str(e))
+                    logger.warning("FMP API collection failed, falling back to simulated generator", ticker=ticker, error=str(e))
 
         # ==========================================================
         # TIER 3: Defensive Offline Simulated Generator (Fail-safe)
@@ -137,49 +137,43 @@ class PriceCollector:
         bars.sort(key=lambda x: x.timestamp)
         return bars
 
-    async def _fetch_from_alpha_vantage(self, ticker: str, start_date: date, end_date: date) -> List[Bar]:
-        """Queries the Alpha Vantage TIME_SERIES_DAILY endpoint asynchronously."""
-        # Standardize symbols for Alpha Vantage (e.g. KRX tickers require suffix .KS or .KQ)
-        av_symbol = ticker
+    async def _fetch_from_fmp(self, ticker: str, start_date: date, end_date: date) -> List[Bar]:
+        """Queries the FMP historical-price-full endpoint asynchronously."""
+        fmp_symbol = ticker
         if ticker.isdigit():
             # Korean stocks: default to KOSPI .KS suffix
-            av_symbol = f"{ticker}.KS"
+            fmp_symbol = f"{ticker}.KS"
 
-        logger.debug("Requesting Alpha Vantage TIME_SERIES_DAILY", symbol=av_symbol)
-        url = "https://www.alphavantage.co/query"
+        logger.debug("Requesting FMP historical-price-full", symbol=fmp_symbol)
+        url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{fmp_symbol}"
         params = {
-            "function": "TIME_SERIES_DAILY",
-            "symbol": av_symbol,
-            "outputsize": "full",
-            "apikey": self.alpha_vantage_key
+            "apikey": self.fmp_key
         }
 
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, timeout=15.0)
             if response.status_code != 200:
-                raise RuntimeError(f"Alpha Vantage HTTP error: {response.status_code}")
+                raise RuntimeError(f"FMP HTTP error: {response.status_code}")
                 
             data = response.json()
-            time_series = data.get("Time Series (Daily)")
+            historical = data.get("historical")
             
-            if not time_series:
-                # Handle API rate limit message or error messages
-                note = data.get("Note") or data.get("Error Message")
-                raise RuntimeError(f"Alpha Vantage API error or rate limit hit: {note}")
+            if not historical:
+                raise RuntimeError(f"FMP API returned no historical data: {data}")
 
             bars = []
-            for date_str, metrics in time_series.items():
-                bar_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            for item in historical:
+                bar_date = datetime.strptime(item["date"], "%Y-%m-%d").date()
                 if start_date <= bar_date <= end_date:
                     bars.append(
                         Bar(
                             ticker=ticker,
                             timestamp=datetime.combine(bar_date, datetime.min.time()),
-                            open=float(metrics["1. open"]),
-                            high=float(metrics["2. high"]),
-                            low=float(metrics["3. low"]),
-                            close=float(metrics["4. close"]),
-                            volume=float(metrics["5. volume"])
+                            open=float(item["open"]),
+                            high=float(item["high"]),
+                            low=float(item["low"]),
+                            close=float(item["close"]),
+                            volume=float(item["volume"])
                         )
                     )
             # Return sorted ascending by date

@@ -19,7 +19,7 @@ class DataCollector:
         self._cache: Dict[str, Bar] = {}
         self._last_fetch_time: Dict[str, datetime] = {}
         self.ttl_seconds = 300  # 5-minute cache TTL
-        self.alpha_vantage_key = settings.ALPHA_VANTAGE_API_KEY
+        self.fmp_key = settings.FMP_API_KEY
 
     async def _fetch_from_finance_datareader(self, ticker: str, start_date: date, end_date: date) -> List[Bar]:
         """Wrapper to call FinanceDataReader.DataReader asynchronously in an executor thread."""
@@ -58,46 +58,42 @@ class DataCollector:
             )
         return bars
 
-    async def _fetch_from_alpha_vantage(self, ticker: str, start_date: date, end_date: date) -> List[Bar]:
-        """Queries the Alpha Vantage TIME_SERIES_DAILY endpoint asynchronously."""
-        av_symbol = ticker
+    async def _fetch_from_fmp(self, ticker: str, start_date: date, end_date: date) -> List[Bar]:
+        """Queries the FMP historical-price-full endpoint asynchronously."""
+        fmp_symbol = ticker
         if ticker.isdigit():
-            av_symbol = f"{ticker}.KS"
+            fmp_symbol = f"{ticker}.KS"
 
-        logger.debug("Requesting Alpha Vantage in DataCollector", symbol=av_symbol)
-        url = "https://www.alphavantage.co/query"
+        logger.debug("Requesting FMP in DataCollector", symbol=fmp_symbol)
+        url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{fmp_symbol}"
         params = {
-            "function": "TIME_SERIES_DAILY",
-            "symbol": av_symbol,
-            "outputsize": "full",
-            "apikey": self.alpha_vantage_key
+            "apikey": self.fmp_key
         }
 
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, timeout=15.0)
             if response.status_code != 200:
-                raise RuntimeError(f"Alpha Vantage HTTP error: {response.status_code}")
+                raise RuntimeError(f"FMP HTTP error: {response.status_code}")
                 
             data = response.json()
-            time_series = data.get("Time Series (Daily)")
+            historical = data.get("historical")
             
-            if not time_series:
-                note = data.get("Note") or data.get("Error Message")
-                raise RuntimeError(f"Alpha Vantage API error: {note}")
+            if not historical:
+                raise RuntimeError(f"FMP API returned no historical data: {data}")
 
             bars = []
-            for date_str, metrics in time_series.items():
-                bar_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            for item in historical:
+                bar_date = datetime.strptime(item["date"], "%Y-%m-%d").date()
                 if start_date <= bar_date <= end_date:
                     bars.append(
                         Bar(
                             ticker=ticker,
                             timestamp=datetime.combine(bar_date, datetime.min.time()),
-                            open=float(metrics["1. open"]),
-                            high=float(metrics["2. high"]),
-                            low=float(metrics["3. low"]),
-                            close=float(metrics["4. close"]),
-                            volume=float(metrics["5. volume"])
+                            open=float(item["open"]),
+                            high=float(item["high"]),
+                            low=float(item["low"]),
+                            close=float(item["close"]),
+                            volume=float(item["volume"])
                         )
                     )
             # Return sorted ascending by date
@@ -171,12 +167,12 @@ class DataCollector:
         except Exception as e:
             logger.warning("FinanceDataReader failed in DataCollector, falling back to Alpha Vantage", ticker=ticker, error=str(e))
 
-        # Tier 2: Alpha Vantage
-        if not bars and self.alpha_vantage_key and self.alpha_vantage_key != "your_alpha_vantage_api_key_here":
+        # Tier 2: FMP
+        if not bars and self.fmp_key and self.fmp_key != "your_fmp_api_key_here":
             try:
-                bars = await self._fetch_from_alpha_vantage(ticker, start_date, end_date)
+                bars = await self._fetch_from_fmp(ticker, start_date, end_date)
             except Exception as e:
-                logger.warning("Alpha Vantage failed in DataCollector", ticker=ticker, error=str(e))
+                logger.warning("FMP failed in DataCollector", ticker=ticker, error=str(e))
 
         if bars:
             bars.sort(key=lambda x: x.timestamp)

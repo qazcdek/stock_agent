@@ -7,26 +7,24 @@ from stock_agent.monitoring.logger import logger
 
 class FundamentalCollector:
     def __init__(self):
-        self.alpha_vantage_key = settings.ALPHA_VANTAGE_API_KEY
+        self.fmp_key = settings.FMP_API_KEY
 
     async def fetch_fundamental_metrics(self, ticker: str, target_date: date) -> Optional[Dict[str, Any]]:
-        """Fetches advanced corporate valuation metrics (PER, PBR, EPS, dividend) via Alpha Vantage OVERVIEW."""
+        """Fetches advanced corporate valuation metrics (PER, PBR, EPS, dividend) via FMP Key Metrics TTM."""
         logger.info("Collecting fundamental valuation metrics", ticker=ticker)
 
         # ==========================================================
-        # TIER 1: Alpha Vantage Company Overview
+        # TIER 1: FMP Key Metrics TTM
         # ==========================================================
-        if self.alpha_vantage_key and self.alpha_vantage_key != "your_alpha_vantage_api_key_here":
-            av_symbol = ticker
+        if self.fmp_key and self.fmp_key != "your_fmp_api_key_here":
+            fmp_symbol = ticker
             if ticker.isdigit():
-                av_symbol = f"{ticker}.KS" # Format for Korean KOSPI stocks
+                fmp_symbol = f"{ticker}.KS" # Format for Korean KOSPI stocks
 
-            logger.debug("Requesting Alpha Vantage OVERVIEW", symbol=av_symbol)
-            url = "https://www.alphavantage.co/query"
+            logger.debug("Requesting FMP Key Metrics TTM", symbol=fmp_symbol)
+            url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{fmp_symbol}"
             params = {
-                "function": "OVERVIEW",
-                "symbol": av_symbol,
-                "apikey": self.alpha_vantage_key
+                "apikey": self.fmp_key
             }
 
             try:
@@ -34,24 +32,28 @@ class FundamentalCollector:
                     response = await client.get(url, params=params, timeout=12.0)
                     if response.status_code == 200:
                         data = response.json()
-                        # Verify the response is not an empty dict or error message
-                        if data and "Symbol" in data:
+                        # FMP key-metrics-ttm returns a list of dictionaries
+                        if data and isinstance(data, list) and len(data) > 0:
+                            item = data[0]
+                            # FMP uses decimal for dividend yield, convert to percentage
+                            div_yield_pct = float(item.get("dividendYieldTTM", 0.0)) * 100.0 if item.get("dividendYieldTTM") is not None else float(item.get("dividendYieldPercentageTTM", 0.0))
+                            
                             metrics = {
                                 "ticker": ticker,
                                 "date": target_date.isoformat(),
-                                "bps": float(data.get("BookValue", 0.0)),
-                                "per": float(data.get("PERatio", 0.0)),
-                                "pbr": float(data.get("PriceToBookRatio", 0.0)),
-                                "eps": float(data.get("EPS", 0.0)),
-                                "div_yield": float(data.get("DividendYield", 0.0)) * 100.0, # Yield converted to %
-                                "dps": float(data.get("DividendPerShare", 0.0))
+                                "bps": float(item.get("bookValuePerShareTTM", 0.0)),
+                                "per": float(item.get("peRatioTTM", 0.0)),
+                                "pbr": float(item.get("pbRatioTTM", 0.0)),
+                                "eps": float(item.get("netIncomePerShareTTM", 0.0)),
+                                "div_yield": div_yield_pct,
+                                "dps": float(item.get("dividendPerShareTTM", 0.0))
                             }
-                            logger.info("Successfully fetched fundamental metrics from Alpha Vantage OVERVIEW", ticker=ticker, metrics=metrics)
+                            logger.info("Successfully fetched fundamental metrics from FMP Key Metrics TTM", ticker=ticker, metrics=metrics)
                             return metrics
                         else:
-                            logger.warning("Alpha Vantage OVERVIEW returned empty or error data. Checking fallback.", details=data)
+                            logger.warning("FMP Key Metrics TTM returned empty or error data. Checking fallback.", details=data)
             except Exception as e:
-                logger.error("Failed to query Alpha Vantage OVERVIEW, using fallback", ticker=ticker, error=str(e))
+                logger.error("Failed to query FMP Key Metrics TTM, using fallback", ticker=ticker, error=str(e))
 
         # ==========================================================
         # TIER 2: Fallback Mock Valuation (Highly realistic values by ticker)

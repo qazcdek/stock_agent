@@ -54,6 +54,16 @@ class PostgresManager:
                         ticker VARCHAR PRIMARY KEY
                     )
                 """))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS recommendations (
+                        ticker VARCHAR PRIMARY KEY,
+                        action VARCHAR,
+                        confidence REAL,
+                        rationale TEXT,
+                        blackboard_state TEXT,
+                        created_at VARCHAR
+                    )
+                """))
                 conn.commit()
             
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)

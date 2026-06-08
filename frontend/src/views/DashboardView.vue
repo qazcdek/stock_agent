@@ -23,7 +23,9 @@ import {
   formatDateTime,
   fetchPrediction,
   chartCallbacks,
-  apiBase
+  apiBase,
+  dashboardSummary,
+  fetchDashboardSummary
 } from '../store/tradingStore.js';
 
 // Chart instances
@@ -719,6 +721,7 @@ onMounted(async () => {
   chartCallbacks.push(onRawDataCollected);
   await checkColdStartHealth();
   await fetchWatchlist();
+  await fetchDashboardSummary();
   if (watchlist.value.length > 0) {
     if (!watchlist.value.includes(activeTicker.value)) {
       activeTicker.value = watchlist.value[0];
@@ -878,6 +881,56 @@ watch(activeTicker, (newTicker) => {
 <template>
   <div class="flex flex-col gap-6 relative">
 
+    <!-- Dashboard Top Stats Grid -->
+    <div v-if="dashboardSummary" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="glass-card p-4 flex flex-col font-outfit justify-between">
+        <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">포트폴리오 총 평가액</span>
+        <span class="text-lg font-extrabold text-white mt-1">
+          {{ formatCurrency(dashboardSummary.portfolio.total_value, '', viewCurrency) }}
+        </span>
+      </div>
+      <div class="glass-card p-4 flex flex-col font-outfit justify-between">
+        <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">누적 수익률</span>
+        <span :class="['text-lg font-extrabold mt-1', dashboardSummary.portfolio.floating_pnl >= 0 ? 'text-brandGreen' : 'text-brandRed']">
+          {{ dashboardSummary.portfolio.floating_pnl >= 0 ? '+' : '' }}{{ formatNumber(dashboardSummary.portfolio.return_pct) }}%
+        </span>
+      </div>
+      <div class="glass-card p-4 flex flex-col font-outfit justify-between">
+        <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">AI 평균 승률 (Win Rate)</span>
+        <span class="text-lg font-extrabold text-brandGold mt-1">
+          {{ dashboardSummary.stats.win_rate }}%
+        </span>
+      </div>
+      <div class="glass-card p-4 flex flex-col font-outfit justify-between">
+        <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">대기 중인 매매 승인</span>
+        <span class="text-lg font-extrabold text-brandPurple mt-1 flex items-center gap-2">
+          {{ dashboardSummary.stats.pending_approvals }} 건
+          <span v-if="dashboardSummary.stats.pending_approvals > 0" class="w-2.5 h-2.5 rounded-full bg-brandGold glow-dot"></span>
+        </span>
+      </div>
+      <div class="glass-card p-4 flex flex-col font-outfit justify-between">
+        <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">실시간 시스템 상태</span>
+        <div class="flex items-center gap-3 mt-2">
+          <div class="flex items-center gap-1 text-[9px] font-mono text-slate-400">
+            <span class="w-1.5 h-1.5 rounded-full" :class="dashboardSummary.system_status.clickhouse ? 'bg-brandGreen glow-dot text-brandGreen' : 'bg-brandRed'"></span>
+            <span>CH</span>
+          </div>
+          <div class="flex items-center gap-1 text-[9px] font-mono text-slate-400">
+            <span class="w-1.5 h-1.5 rounded-full" :class="dashboardSummary.system_status.mongodb ? 'bg-brandGreen glow-dot text-brandGreen' : 'bg-brandRed'"></span>
+            <span>MG</span>
+          </div>
+          <div class="flex items-center gap-1 text-[9px] font-mono text-slate-400">
+            <span class="w-1.5 h-1.5 rounded-full" :class="dashboardSummary.system_status.duckdb ? 'bg-brandGreen glow-dot text-brandGreen' : 'bg-brandRed'"></span>
+            <span>DK</span>
+          </div>
+          <div class="flex items-center gap-1 text-[9px] font-mono text-slate-400">
+            <span class="w-1.5 h-1.5 rounded-full" :class="dashboardSummary.system_status.postgres ? 'bg-brandGreen glow-dot text-brandGreen' : 'bg-brandRed'"></span>
+            <span>PG</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Custom Trend Line Context Menu -->
     <div
       v-if="showContextMenu"
@@ -960,11 +1013,11 @@ watch(activeTicker, (newTicker) => {
             @click="selectTicker(ticker)"
             :class="[
               'flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all',
-              activeTicker === ticker ? 'border-brandIndigo bg-brandIndigo/5' : 'border-slate-800/80 hover:bg-slate-800/30'
+              activeTicker.value === ticker ? 'border-brandIndigo bg-brandIndigo/5' : 'border-slate-800/80 hover:bg-slate-800/30'
             ]"
           >
             <div class="flex items-center gap-2">
-              <span class="font-outfit font-extrabold text-xs" :class="activeTicker === ticker ? 'text-brandIndigo' : 'text-white'">
+              <span class="font-outfit font-extrabold text-xs" :class="activeTicker.value === ticker ? 'text-brandIndigo' : 'text-white'">
                 {{ ticker }}
               </span>
               <span class="text-[8px] bg-emerald-950/60 text-brandGreen border border-brandGreen/20 px-1.5 py-0.2 rounded font-semibold font-sans">
@@ -1015,7 +1068,7 @@ watch(activeTicker, (newTicker) => {
               Chart Feed
             </span>
             <h3 class="font-outfit font-extrabold text-sm text-white uppercase tracking-wider">
-              {{ activeTicker }} 실시간 일별 차트
+              {{ activeTicker.value }} 실시간 일별 차트
             </h3>
           </div>
           <div class="flex items-center gap-3 text-[10px] font-semibold">

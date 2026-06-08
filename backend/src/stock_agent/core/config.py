@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     VLLM_API_BASE: Optional[str] = Field(default="http://localhost:8000/v1")
     VLLM_API_KEY: Optional[str] = Field(default=None)
 
-    ALPHA_VANTAGE_API_KEY: Optional[str] = Field(default=None)
+    FMP_API_KEY: Optional[str] = Field(default=None)
     DART_API_KEY: Optional[str] = Field(default=None)
     NAVER_CLIENT_ID: Optional[str] = Field(default=None)
     NAVER_CLIENT_SECRET: Optional[str] = Field(default=None)

@@ -114,6 +114,18 @@ class StorageLayer:
             )
         """)
 
+        # Recommendations Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recommendations (
+                ticker TEXT PRIMARY KEY,
+                action TEXT,
+                confidence REAL,
+                rationale TEXT,
+                blackboard_state TEXT,
+                created_at TEXT
+            )
+        """)
+
         # Raw News Table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS raw_news (
@@ -587,6 +599,113 @@ class StorageLayer:
         finally:
             conn.close()
         return articles
+
+    # ------------------ Recommendations ------------------
+
+    def save_recommendation(self, ticker: str, action: str, confidence: float, rationale: str, blackboard_state: dict):
+        from stock_agent.infra.storage.multi_db import postgres_manager
+        import json
+        created_at_str = datetime.now().isoformat()
+        state_str = json.dumps(blackboard_state)
+
+        if postgres_manager.active:
+            try:
+                self._execute_postgres_sync("""
+                    INSERT INTO recommendations (ticker, action, confidence, rationale, blackboard_state, created_at)
+                    VALUES (:ticker, :action, :confidence, :rationale, :blackboard_state, :created_at)
+                    ON CONFLICT (ticker) DO UPDATE SET
+                        action = EXCLUDED.action,
+                        confidence = EXCLUDED.confidence,
+                        rationale = EXCLUDED.rationale,
+                        blackboard_state = EXCLUDED.blackboard_state,
+                        created_at = EXCLUDED.created_at
+                """, {
+                    "ticker": ticker,
+                    "action": action,
+                    "confidence": confidence,
+                    "rationale": rationale,
+                    "blackboard_state": state_str,
+                    "created_at": created_at_str
+                })
+                logger.info("Saved recommendation to Postgres", ticker=ticker)
+                return
+            except Exception as e:
+                logger.error("Failed to save recommendation to Postgres. Falling back to SQLite.", error=str(e), ticker=ticker)
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT OR REPLACE INTO recommendations (ticker, action, confidence, rationale, blackboard_state, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (ticker, action, confidence, rationale, state_str, created_at_str))
+            conn.commit()
+        except Exception as e:
+            logger.error("Failed to save recommendation to SQLite", error=str(e), ticker=ticker)
+        finally:
+            conn.close()
+
+    def get_recommendations(self) -> List[dict]:
+        from stock_agent.infra.storage.multi_db import postgres_manager
+        import json
+
+        if postgres_manager.active:
+            try:
+                rows = self._execute_postgres_sync("SELECT ticker, action, confidence, rationale, blackboard_state, created_at FROM recommendations")
+                results = []
+                for r in rows:
+                    results.append({
+                        "ticker": r["ticker"],
+                        "action": r["action"],
+                        "confidence": r["confidence"],
+                        "rationale": r["rationale"],
+                        "blackboard_state": json.loads(r["blackboard_state"]) if r["blackboard_state"] else {},
+                        "created_at": r["created_at"]
+                    })
+                return results
+            except Exception as e:
+                logger.error("Failed to get recommendations from Postgres. Falling back to SQLite.", error=str(e))
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        results = []
+        try:
+            cursor.execute("SELECT ticker, action, confidence, rationale, blackboard_state, created_at FROM recommendations")
+            rows = cursor.fetchall()
+            for r in rows:
+                results.append({
+                    "ticker": r["ticker"],
+                    "action": r["action"],
+                    "confidence": r["confidence"],
+                    "rationale": r["rationale"],
+                    "blackboard_state": json.loads(r["blackboard_state"]) if r["blackboard_state"] else {},
+                    "created_at": r["created_at"]
+                })
+        except Exception as e:
+            logger.error("Failed to get recommendations from SQLite", error=str(e))
+        finally:
+            conn.close()
+        return results
+
+    def clear_recommendations(self):
+        from stock_agent.infra.storage.multi_db import postgres_manager
+        if postgres_manager.active:
+            try:
+                self._execute_postgres_sync("DELETE FROM recommendations")
+                logger.info("Cleared recommendations from Postgres")
+                return
+            except Exception as e:
+                logger.error("Failed to clear recommendations from Postgres. Falling back to SQLite.", error=str(e))
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM recommendations")
+            conn.commit()
+        except Exception as e:
+            logger.error("Failed to clear recommendations from SQLite", error=str(e))
+        finally:
+            conn.close()
 
 
 def get_trading_universe() -> List[str]:

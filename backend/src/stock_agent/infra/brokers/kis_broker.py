@@ -252,21 +252,138 @@ class KISBroker(Broker):
             return await self.paper_fallback.cancel_order(order_id)
         return True
 
-    async def get_positions(self) -> Dict[str, Position]:
+    async def _inquire_balance_api(self) -> Optional[Dict[str, Any]]:
+        """Inquires domestic stock balance and account summary via KIS REST API."""
         await self._ensure_token()
+        if self.is_mock_mode:
+            return None
+
+        # Check if using real or mock/paper domain
+        is_real_kis = "openapimts" not in self.base_url
+        tr_id = "TTTC8434R" if is_real_kis else "VTTC8434R"
+
+        cano = settings.KIS_CANO or self.account_no.split("-")[0]
+        prdt_cd = settings.KIS_ACNT_PRDT_CD or self.account_no.split("-")[1]
+
+        url = f"{self.base_url}/uapi/domestic-stock/v1/trading/inquire-balance"
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "authorization": f"Bearer {self.access_token}",
+            "appkey": self.app_key,
+            "appsecret": self.app_secret,
+            "tr_id": tr_id,
+            "tr_cont": "",
+        }
+        params = {
+            "CANO": cano,
+            "ACNT_PRDT_CD": prdt_cd,
+            "AFHR_FLG": "00",
+            "OFL_YN": "",
+            "INQR_DVSN": "01",  # 01 queries both holdings list and summary totals
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N",
+            "PRCS_DVSN": "00",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": ""
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, headers=headers, params=params, timeout=10.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    rt_cd = data.get("rt_cd")
+                    if rt_cd == "0":
+                        return data
+                    else:
+                        logger.error("KIS inquire-balance rejected by API", msg=data.get("msg1"), code=rt_cd)
+                else:
+                    logger.error("KIS inquire-balance HTTP error", status=response.status_code, body=response.text)
+        except Exception as e:
+            logger.error("Exception in KIS inquire-balance API dispatch", error=str(e))
+        return None
+
+    async def get_positions(self) -> Dict[str, Position]:
         if self.is_mock_mode:
             return await self.paper_fallback.get_positions()
 
-        # In a real KIS response, we'd query /uapi/domestic-stock/v1/trading/inquire-balance (Tr. ID: TTTC8434R)
-        # For this template integration, we fallback to local tracking or empty holdings
-        return await self.paper_fallback.get_positions()
+        data = await self._inquire_balance_api()
+        if not data:
+            logger.warning("Failed to retrieve real KIS positions. Falling back to Paper positions.")
+            return await self.paper_fallback.get_positions()
+
+        try:
+            output1 = data.get("output1", [])
+            positions = {}
+            for item in output1:
+                ticker = item.get("pdno")
+                qty_str = item.get("hldg_qty") or item.get("hldg_qty_smt") or "0"
+                qty = int(qty_str)
+                if qty <= 0 or not ticker:
+                    continue
+
+                avg_price = float(item.get("pchs_avg_pric") or item.get("pchs_avg_unpr") or 0.0)
+                current_price = float(item.get("prpr") or 0.0)
+
+                # Check for evaluation pnl
+                pnl = float(item.get("evlu_pfls_amt") or 0.0)
+                pnl_pct = float(item.get("evlu_pfls_rt") or 0.0) / 100.0 # percentage to ratio
+
+                positions[ticker] = Position(
+                    ticker=ticker,
+                    quantity=qty,
+                    avg_price=avg_price,
+                    current_price=current_price,
+                    pnl=pnl,
+                    pnl_pct=pnl_pct
+                )
+            return positions
+        except Exception as e:
+            logger.error("Error parsing KIS positions response. Falling back to Paper positions.", error=str(e))
+            return await self.paper_fallback.get_positions()
 
     async def get_balance(self) -> Dict[str, float]:
-        await self._ensure_token()
         if self.is_mock_mode:
             return await self.paper_fallback.get_balance()
 
-        return await self.paper_fallback.get_balance()
+        data = await self._inquire_balance_api()
+        if not data:
+            logger.warning("Failed to retrieve real KIS balance. Falling back to Paper balance.")
+            return await self.paper_fallback.get_balance()
+
+        try:
+            output2 = data.get("output2", [])
+            summary = {}
+            if isinstance(output2, list) and len(output2) > 0:
+                summary = output2[0]
+            elif isinstance(output2, dict):
+                summary = output2
+
+            # dnca_tot_amt or prvs_rcvb_amt is cash
+            cash_str = (
+                summary.get("dnca_tot_amt") or 
+                summary.get("prvs_rcvb_amt") or 
+                summary.get("nass_amt") or 
+                "0"
+            )
+            # tot_evlu_amt or nass_amt is total assets
+            total_asset_str = (
+                summary.get("tot_evlu_amt") or 
+                summary.get("nass_amt") or 
+                cash_str
+            )
+
+            cash = float(cash_str)
+            total_asset = float(total_asset_str)
+
+            return {
+                "cash": cash,
+                "total_asset": total_asset
+            }
+        except Exception as e:
+            logger.error("Error parsing KIS balance response. Falling back to Paper balance.", error=str(e))
+            return await self.paper_fallback.get_balance()
 
     async def get_current_price(self, ticker: str) -> float:
         await self._ensure_token()

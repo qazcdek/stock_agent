@@ -21,6 +21,8 @@ export const simReport = ref(null);
 export const dbLoading = ref(false);
 export const ordersLog = ref([]);
 export const pendingQueue = ref([]);
+export const recommendationsList = ref([]);
+export const recommendationsLoading = ref(false);
 
 // Currency Settings
 export const exchangeRate = ref(1400.0);
@@ -174,6 +176,36 @@ export async function fetchWatchlist() {
   }
 }
 
+export async function fetchRecommendations() {
+  try {
+    const res = await fetch(`${apiBase}/api/recommendations`);
+    const data = await res.json();
+    recommendationsList.value = data;
+    return data;
+  } catch (e) {
+    console.error('Failed to fetch recommendations', e);
+  }
+}
+
+export async function generateRecommendations() {
+  recommendationsLoading.value = true;
+  addLog('Starting multi-agent Blackboard Trading Team candidate scan...', 'brandPurple');
+  try {
+    const res = await fetch(`${apiBase}/api/recommendations/generate`, {
+      method: 'POST'
+    });
+    const data = await res.json();
+    recommendationsList.value = data;
+    addLog(`Multi-agent Blackboard scan complete. Generated ${data.length} stock recommendations!`, 'brandGreen');
+    return data;
+  } catch (e) {
+    console.error('Failed to generate recommendations', e);
+    addLog('Multi-agent Blackboard scan failed.', 'brandRed');
+  } finally {
+    recommendationsLoading.value = false;
+  }
+}
+
 export async function addWatchlistTicker() {
   const val = newTickerInput.value.trim().toUpperCase();
   if (!val) return;
@@ -195,6 +227,26 @@ export async function addWatchlistTicker() {
   } catch (e) {
     console.error('Add ticker failed', e);
   }
+}
+
+export async function addWatchlistTickerSymbol(ticker) {
+  addLog(`Adding ${ticker} to Watchlist (관심종목)...`, 'slate-400');
+  try {
+    const res = await fetch(`${apiBase}/api/watchlist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker: ticker })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await fetchWatchlist();
+      addLog(`Successfully added ${ticker} to persistent SQL Watchlist. Raw collection started!`, 'brandGreen');
+      return true;
+    }
+  } catch (e) {
+    console.error('Add ticker symbol failed', e);
+  }
+  return false;
 }
 
 export async function removeWatchlistTicker(ticker) {
@@ -568,5 +620,306 @@ export function formatDateTime(val) {
     return d.toLocaleString();
   } catch (e) {
     return val;
+  }
+}
+
+// New Navigation/Tab States
+export const dashboardSummary = ref(null);
+export const approvalsList = ref([]);
+export const activePositions = ref([]);
+export const activeOrders = ref([]);
+export const tradeHistory = ref([]);
+export const strategySettings = ref({ buy_threshold: 0.25, sell_threshold: -0.25, strategies: [] });
+export const modelRegistry = ref([]);
+export const notificationConfig = ref({
+  slack_webhook_url: "",
+  telegram_bot_token: "",
+  telegram_chat_id: "",
+  notify_order_filled: true,
+  notify_order_rejected: true,
+  notify_approval_required: true
+});
+export const systemConfig = ref({});
+export const blackboardState = ref({});
+export const systemHealth = ref({});
+export const backtestJob = ref(null);
+
+export async function fetchDashboardSummary() {
+  try {
+    const res = await fetch(`${apiBase}/api/dashboard/summary`);
+    if (res.ok) {
+      dashboardSummary.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch dashboard summary", e);
+  }
+}
+
+export async function fetchApprovals() {
+  try {
+    const res = await fetch(`${apiBase}/api/approvals`);
+    if (res.ok) {
+      approvalsList.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch approvals", e);
+  }
+}
+
+export async function handleApprovalAction(queueId, action) {
+  try {
+    const res = await fetch(`${apiBase}/api/approvals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queue_id: queueId, action })
+    });
+    if (res.ok) {
+      await fetchApprovals();
+      await fetchDashboardSummary();
+    }
+  } catch (e) {
+    console.error("Failed to handle approval action", e);
+  }
+}
+
+export async function fetchActivePositions() {
+  try {
+    const res = await fetch(`${apiBase}/api/positions`);
+    if (res.ok) {
+      activePositions.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch active positions", e);
+  }
+}
+
+export async function fetchActiveOrders() {
+  try {
+    const res = await fetch(`${apiBase}/api/orders/active`);
+    if (res.ok) {
+      activeOrders.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch active orders", e);
+  }
+}
+
+export async function fetchTradeHistory(from = "", to = "") {
+  try {
+    let url = `${apiBase}/api/trades`;
+    const params = [];
+    if (from) params.push(`from_date=${from}`);
+    if (to) params.push(`to_date=${to}`);
+    if (params.length > 0) url += `?${params.join("&")}`;
+    
+    const res = await fetch(url);
+    if (res.ok) {
+      tradeHistory.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch trade history", e);
+  }
+}
+
+export async function fetchStrategySettings() {
+  try {
+    const res = await fetch(`${apiBase}/api/strategies`);
+    if (res.ok) {
+      strategySettings.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch strategy settings", e);
+  }
+}
+
+export async function saveStrategySettings(payload) {
+  try {
+    const res = await fetch(`${apiBase}/api/strategies`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      strategySettings.value = (await res.json()).strategies;
+      addLog("Successfully saved dynamic strategy parameters.", "brandGreen");
+    }
+  } catch (e) {
+    console.error("Failed to save strategy settings", e);
+  }
+}
+
+export async function fetchModelRegistry() {
+  try {
+    const res = await fetch(`${apiBase}/api/models`);
+    if (res.ok) {
+      modelRegistry.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch model registry", e);
+  }
+}
+
+export async function trainModel(ticker) {
+  addLog(`Triggering ML OLS regression model training for ${ticker}...`, "brandIndigo");
+  try {
+    const res = await fetch(`${apiBase}/api/models`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker })
+    });
+    const data = await res.json();
+    if (data.success) {
+      addLog(`Model trained successfully for ${ticker}! R-squared: ${data.model.r_squared}`, "brandGreen");
+      await fetchModelRegistry();
+      return true;
+    } else {
+      addLog(`Training failed: ${data.error}`, "brandRed");
+      return false;
+    }
+  } catch (e) {
+    console.error("Failed to train model", e);
+    return false;
+  }
+}
+
+export async function fetchNotificationConfig() {
+  try {
+    const res = await fetch(`${apiBase}/api/notifications/config`);
+    if (res.ok) {
+      notificationConfig.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch notification config", e);
+  }
+}
+
+export async function saveNotificationConfig(payload) {
+  try {
+    const res = await fetch(`${apiBase}/api/notifications/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      notificationConfig.value = (await res.json()).config;
+      addLog("Successfully saved notification configurations.", "brandGreen");
+    }
+  } catch (e) {
+    console.error("Failed to save notification config", e);
+  }
+}
+
+export async function fetchSystemConfig() {
+  try {
+    const res = await fetch(`${apiBase}/api/system/config`);
+    if (res.ok) {
+      systemConfig.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch system config", e);
+  }
+}
+
+export async function saveSystemConfig(payload) {
+  try {
+    const res = await fetch(`${apiBase}/api/system/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      systemConfig.value = (await res.json()).config;
+      addLog("Successfully updated system risk limits.", "brandGreen");
+    }
+  } catch (e) {
+    console.error("Failed to save system config", e);
+  }
+}
+
+export async function fetchBlackboardState(ticker = "") {
+  try {
+    let url = `${apiBase}/api/blackboard/state`;
+    if (ticker) url += `?ticker=${encodeURIComponent(ticker)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      blackboardState.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch blackboard state", e);
+  }
+}
+
+export async function fetchSystemHealth() {
+  try {
+    const res = await fetch(`${apiBase}/api/system/health`);
+    if (res.ok) {
+      systemHealth.value = await res.json();
+    }
+  } catch (e) {
+    console.error("Failed to fetch system health", e);
+  }
+}
+
+export async function triggerAsyncBacktest(tickers, days) {
+  simLoading.value = true;
+  simLogs.value = [];
+  simReport.value = null;
+  
+  addLog("Spawning background asynchronous backtest run...", "brandIndigo");
+  
+  try {
+    const res = await fetch(`${apiBase}/api/backtests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tickers, days })
+    });
+    const data = await res.json();
+    if (data.success) {
+      backtestJob.value = data.backtest_id;
+      addLog(`Job submitted successfully. Job ID: ${data.backtest_id}`, "brandGreen");
+      pollBacktestJob(data.backtest_id);
+    } else {
+      simLoading.value = false;
+      addLog(`Failed to start backtest: ${data.error}`, "brandRed");
+    }
+  } catch (e) {
+    simLoading.value = false;
+    console.error("Failed to trigger backtest", e);
+  }
+}
+
+async function pollBacktestJob(jobId) {
+  if (!simLoading.value || backtestJob.value !== jobId) return;
+  
+  try {
+    const res = await fetch(`${apiBase}/api/backtests/${jobId}`);
+    if (res.ok) {
+      const data = await res.json();
+      
+      if (data.logs) {
+        simLogs.value = data.logs.map(log => ({
+          time: new Date().toLocaleTimeString(),
+          text: log,
+          color: log.includes("failed") || log.includes("Failed") ? "brandRed" : log.includes("ended") || log.includes("successfully") ? "brandGreen" : "slate-300"
+        })).reverse();
+      }
+      
+      if (data.status === "COMPLETED") {
+        simReport.value = data.metrics;
+        simLoading.value = false;
+        backtestJob.value = null;
+        addLog("Asynchronous backtest run completed successfully.", "brandGreen");
+      } else if (data.status === "FAILED") {
+        simLoading.value = false;
+        backtestJob.value = null;
+        addLog("Asynchronous backtest run failed.", "brandRed");
+      } else {
+        setTimeout(() => pollBacktestJob(jobId), 1000);
+      }
+    }
+  } catch (e) {
+    console.error("Error polling backtest status", e);
+    simLoading.value = false;
+    backtestJob.value = null;
   }
 }
