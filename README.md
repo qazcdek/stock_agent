@@ -68,38 +68,88 @@ stock_agent/
 └── tests/                          # Automated tests suite
 ```
 
-## Setup Instructions
+## 개발 및 빌드/배포 가이드 (Setup, Development & Production Build/Run)
 
-1. **Clone & Setup Environment**:
+이 프로젝트는 백엔드(FastAPI)와 프런트엔드(Vue 3 + Vite)로 구성되어 있습니다. 각각 **uv**와 **yarn**을 사용하여 관리됩니다.
+
+---
+
+### 1. 개발 환경 (Development / Dev)
+
+개발 중에는 백엔드 API 서버와 프런트엔드 HMR(Hot Module Replacement) 서버를 개별적으로 실행하여 개발을 진행합니다.
+
+#### 백엔드 (FastAPI)
+1. **환경 설정 파일 작성**:
    ```bash
+   cd backend
    cp .env.example .env
-   # Edit .env with your OpenAI API keys, KIS credentials, etc.
+   # .env 파일에 필요한 API 키(FMP_API_KEY, DART_API_KEY, LLM 키 등)를 입력합니다.
    ```
-
-2. **Install Dependencies using uv**:
+2. **의존성 설치**:
    ```bash
-   # Sync dependencies using uv
    uv sync
    ```
-
-3. **Start Development Database**:
+3. **로컬 개발 서버 실행 (Auto-reload 활성화)**:
    ```bash
-   docker-compose up -d
+   uv run uvicorn apps.main:app --port 8000 --reload
    ```
 
-## Running the Application
+#### 프런트엔드 (Vue 3 / Vite)
+1. **의존성 설치**:
+   ```bash
+   cd frontend
+   yarn install
+   ```
+2. **로컬 개발 서버 실행 (Vite Dev Server)**:
+   ```bash
+   yarn dev
+   ```
+   * 브라우저에서 `http://localhost:5173`으로 접속하여 화면 및 실시간 WebSocket 연동을 개발합니다.
 
-* **Start Data Collection Daemon**:
+---
+
+### 2. 운영 환경 빌드 및 배포 (Production)
+
+운영 환경에서는 프런트엔드 코드를 빌드하여 정적 파일로 컴파일하고, 백엔드 FastAPI 서버를 통해 통합 배포/서빙할 수 있도록 구성되어 있습니다.
+
+#### 프런트엔드 빌드 (Static Asset 컴파일)
+1. **프런트엔드 빌드 실행**:
+   ```bash
+   cd frontend
+   yarn build
+   ```
+   * 빌드가 완료되면 `frontend/dist` 디렉토리에 최적화된 정적 HTML/CSS/JS 리소스가 생성됩니다.
+
+#### 백엔드 통합 실행 (Production Serve)
+백엔드 서버는 `frontend/dist`에 빌드된 리소스가 존재할 경우, 이를 자동으로 감지하여 정적 파일로 마운트 및 `/` 경로에서 서빙합니다.
+
+1. **운영용 백엔드 실행**:
+   ```bash
+   cd backend
+   # --reload 옵션을 제외하고 실행하여 성능 최적화 및 안정성을 확보합니다.
+   uv run uvicorn apps.main:app --host 0.0.0.0 --port 8000
+   ```
+   * 서버가 시작되면 `http://localhost:8000`에서 프런트엔드 화면과 백엔드 API가 통합 서빙됩니다.
+
+---
+
+### 3. 기타 유틸리티 실행
+
+* **데이터 수집 워커 실행**:
   ```bash
+  cd backend
   uv run python apps/data_worker.py
   ```
 
-* **Start Live Trading Daemon**:
+* **자동 매매 워커 실행**:
   ```bash
+  cd backend
   uv run python apps/trader_worker.py --config configs/paper.yaml
   ```
 
-* **Run a Backtest Simulation**:
+* **백테스트 시뮬레이션 실행**:
   ```bash
+  cd backend
   uv run python apps/backtest_cli.py --ticker 005930 --start 2025-01-01 --end 2026-01-01
   ```
+
