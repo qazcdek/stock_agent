@@ -60,7 +60,9 @@ export const blackboard = reactive({
 
 export const simRequest = reactive({
   tickers: [],
-  days: 2
+  days: 2,
+  mode: 'vector',
+  strategy: 'technical'
 });
 
 export const orderForm = reactive({
@@ -860,7 +862,7 @@ export async function fetchSystemHealth() {
   }
 }
 
-export async function triggerAsyncBacktest(tickers, days) {
+export async function triggerAsyncBacktest(tickers, days, mode = 'vector', strategy = 'technical') {
   simLoading.value = true;
   simLogs.value = [];
   simReport.value = null;
@@ -871,7 +873,7 @@ export async function triggerAsyncBacktest(tickers, days) {
     const res = await fetch(`${apiBase}/api/backtests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tickers, days })
+      body: JSON.stringify({ tickers, days, mode, strategy })
     });
     const data = await res.json();
     if (data.success) {

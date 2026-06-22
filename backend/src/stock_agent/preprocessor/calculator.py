@@ -19,8 +19,9 @@ class Preprocessor:
         ticker = event.ticker
         bar = event.bar
         
-        # Pull history from storage
+        # Pull history from storage (returns newest-first, so we reverse it)
         bars = storage_layer.get_bars(ticker, limit=50)
+        bars.reverse()
         
         if len(bars) < 5:
             # Not enough data yet to compute technical features

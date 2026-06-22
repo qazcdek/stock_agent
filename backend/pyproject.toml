@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=1.26.4",
     "finance-datareader>=0.9.50",
     "backtrader>=1.9.78.120",
+    "vectorbt",
     "structlog>=24.1.0",
     "apscheduler>=3.10.4",
     "fastapi[standard]>=0.110.0",
