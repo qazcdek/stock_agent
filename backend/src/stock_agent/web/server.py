@@ -542,6 +542,8 @@ async def place_manual_order(body: ManualOrderRequest):
 class BacktestRequest(BaseModel):
     tickers: List[str]
     days: int = 2
+    mode: Optional[str] = "vector"
+    strategy: Optional[str] = "technical"
 
 
 @app.post("/api/backtest")
@@ -966,30 +968,50 @@ async def run_backtest_asynchronously(body: BacktestRequest, background_tasks: B
     async def run_bg_backtest():
         bare_tickers = [denormalize_ticker(t) for t in body.tickers]
         end_time = datetime.now(timezone.utc)
-        import stock_agent.preprocessor
-        import stock_agent.oms
-        import stock_agent.exchange_adapter
-        import stock_agent.risk_manager
+        start_time = end_time - timedelta(days=body.days)
         
         backtests_runs[backtest_id]["logs"].append(f"Analyzing {len(bare_tickers)} assets: {', '.join(bare_tickers)}")
         backtests_runs[backtest_id]["logs"].append(f"Duration lookback: {body.days} days")
+        backtests_runs[backtest_id]["logs"].append(f"Backtesting Mode: {body.mode.upper()}")
         
         try:
-            start_time = end_time - timedelta(days=body.days)
-            metrics = await backtest_engine.run(
-                tickers=bare_tickers,
-                start_time=start_time,
-                end_time=end_time,
-                step_minutes=15
-            )
-            metrics["tickers"] = [normalize_ticker(t) for t in metrics["tickers"]]
-            backtests_runs[backtest_id]["status"] = "COMPLETED"
-            backtests_runs[backtest_id]["progress"] = 100
-            backtests_runs[backtest_id]["metrics"] = metrics
-            backtests_runs[backtest_id]["logs"].append("Simulation ended successfully. Math metrics computed.")
+            if getattr(body, "mode", "vector") == "vector":
+                backtests_runs[backtest_id]["logs"].append("Running fast vectorized backtest via vectorbt...")
+                from stock_agent.backtesting.vbt_adapter import vbt_backtest_runner
+                metrics = await vbt_backtest_runner.run_backtest(
+                    tickers=bare_tickers,
+                    start_dt=start_time,
+                    end_dt=end_time,
+                    strategy=body.strategy
+                )
+                if "error" in metrics:
+                    raise RuntimeError(metrics["error"])
+                metrics["tickers"] = [normalize_ticker(t) for t in metrics["tickers"]]
+                backtests_runs[backtest_id]["status"] = "COMPLETED"
+                backtests_runs[backtest_id]["progress"] = 100
+                backtests_runs[backtest_id]["metrics"] = metrics
+                backtests_runs[backtest_id]["logs"].append("vectorbt backtest ended successfully. Math metrics computed.")
+            else:
+                backtests_runs[backtest_id]["logs"].append("Running tick-by-tick event-driven simulation...")
+                import stock_agent.preprocessor
+                import stock_agent.oms
+                import stock_agent.exchange_adapter
+                import stock_agent.risk_manager
+                
+                metrics = await backtest_engine.run(
+                    tickers=bare_tickers,
+                    start_time=start_time,
+                    end_time=end_time,
+                    step_minutes=15
+                )
+                metrics["tickers"] = [normalize_ticker(t) for t in metrics["tickers"]]
+                backtests_runs[backtest_id]["status"] = "COMPLETED"
+                backtests_runs[backtest_id]["progress"] = 100
+                backtests_runs[backtest_id]["metrics"] = metrics
+                backtests_runs[backtest_id]["logs"].append("Simulation ended successfully. Math metrics computed.")
         except Exception as e:
             backtests_runs[backtest_id]["status"] = "FAILED"
-            backtests_runs[backtest_id]["logs"].append(f"Simulation execution failed: {str(e)}")
+            backtests_runs[backtest_id]["logs"].append(f"Backtest execution failed: {str(e)}")
             
     background_tasks.add_task(run_bg_backtest)
     return {"success": True, "backtest_id": backtest_id, "status": "RUNNING"}

@@ -2,16 +2,13 @@ import pytest
 import asyncio
 from datetime import datetime, timedelta
 from stock_agent.infra.storage.sqlite_repo import SQLiteRepository
-from stock_agent.infra.llm.provider import DeepLLMProxy
-from stock_agent.backtesting.bt_adapter import BacktestRunner
-from stock_agent.backtesting.metrics import calculate_performance_metrics
+from stock_agent.backtesting.vbt_adapter import vbt_backtest_runner
 from stock_agent.core.schemas import Bar
 
 @pytest.mark.asyncio
 async def test_full_backtest_pipeline_e2e():
     # Use SQLite in-memory or temporary DB file for testing isolation
     repository = SQLiteRepository(db_url="sqlite:///:memory:")
-    llm_client = DeepLLMProxy() # Standard config fallback handles missing key safely
     
     ticker = "005930"
     start_dt = datetime(2026, 1, 1)
@@ -40,19 +37,19 @@ async def test_full_backtest_pipeline_e2e():
 
     await repository.save_bars(mock_bars)
 
-    # 2. Instantiate and run BacktestRunner
-    runner = BacktestRunner(repository, llm_client)
-    result = await runner.run_backtest(ticker, start_dt, end_dt, initial_cash=10000000.0)
+    # 2. Run VBTBacktestRunner
+    result = await vbt_backtest_runner.run_backtest(
+        tickers=[ticker],
+        start_dt=start_dt,
+        end_dt=end_dt,
+        initial_cash=10000000.0,
+        repository=repository
+    )
 
     # 3. Assertions
     assert "error" not in result
-    assert result["ticker"] == ticker
-    assert result["initial_value"] == 10000000.0
-    assert len(result["history"]) > 0
-
-    # 4. Assert performance metrics calculate smoothly
-    stats = calculate_performance_metrics(result["history"])
-    assert stats["initial_portfolio_value"] == 10000000.0
-    assert stats["trading_days"] > 0
-    assert "max_drawdown_pct" in stats
-    assert "sharpe_ratio" in stats
+    assert result["tickers"] == [ticker]
+    assert result["final_value"] > 0
+    assert result["return_pct"] is not None
+    assert result["mdd"] is not None
+    assert result["sharpe_ratio"] is not None

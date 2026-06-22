@@ -14,7 +14,7 @@ import {
 } from '../store/tradingStore.js';
 
 function startBacktestRun() {
-  triggerAsyncBacktest(simRequest.tickers, simRequest.days);
+  triggerAsyncBacktest(simRequest.tickers, simRequest.days, simRequest.mode, simRequest.strategy);
 }
 
 onMounted(() => {
@@ -65,7 +65,34 @@ onMounted(() => {
             >
               <option :value="1">1일 과속 테스트 (1 Day)</option>
               <option :value="2">2일 과속 테스트 (2 Days)</option>
-              <option :value="5">5일 고화질 분석 (5 Days)</option>
+              <option :value="5">5일 분석 (5 Days)</option>
+              <option :value="30">30일 한 달 분석 (30 Days)</option>
+              <option :value="60">60일 두 달 분석 (60 Days)</option>
+              <option :value="90">90일 분기 분석 (90 Days)</option>
+            </select>
+          </div>
+
+          <!-- Backtest Mode selection -->
+          <div class="flex flex-col gap-2">
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">백테스팅 모드 (Backtest Mode)</label>
+            <select
+              v-model="simRequest.mode"
+              class="bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white focus:outline-none focus:border-brandIndigo cursor-pointer"
+            >
+              <option value="vector">초고속 백테스팅 (vectorbt)</option>
+              <option value="simulation">모의 거래 시뮬레이션 (Agent Loop)</option>
+            </select>
+          </div>
+
+          <!-- Backtest Strategy selection -->
+          <div class="flex flex-col gap-2" v-if="simRequest.mode === 'vector'">
+            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">백테스팅 전략 (Backtest Strategy)</label>
+            <select
+              v-model="simRequest.strategy"
+              class="bg-slate-900/60 border border-slate-800/80 text-xs px-3 py-2.5 rounded-xl text-white focus:outline-none focus:border-brandIndigo cursor-pointer"
+            >
+              <option value="technical">기술적 지표 전략 (SMA/RSI Crossover)</option>
+              <option value="bollinger">볼린저 밴드 전략 (Bollinger Bands Breakout)</option>
             </select>
           </div>
 
